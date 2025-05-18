@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -10,9 +10,18 @@ import {
 } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { Session } from 'express-session';
+
+// Extend express-session types to include our custom fields
+declare module 'express-session' {
+  interface Session {
+    userId?: number;
+    role?: string;
+  }
+}
 
 // Middleware for checking if user is authenticated
-const isAuthenticated = (req: Request, res: Response, next: Function) => {
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   if (!req.session.userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
@@ -34,27 +43,28 @@ const isAdmin = async (req: Request, res: Response, next: Function) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Session setup
-  import('express-session').then(({ default: session }) => {
-    import('memorystore').then(({ default: MemoryStore }) => {
-      const MemoryStoreModule = MemoryStore(session);
-      app.use(
-        session({
-          store: new MemoryStoreModule({
-            checkPeriod: 86400000, // prune expired entries every 24h
-          }),
-          secret: process.env.SESSION_SECRET || "pelnora-jewellers-mlm-secret",
-          resave: false,
-          saveUninitialized: false,
-          cookie: {
-            secure: process.env.NODE_ENV === "production",
-            httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000, // 24 hours
-          },
-        })
-      );
-    });
-  });
+  // Session setup (synchronous, but with ES module imports)
+  const expressSession = await import('express-session');
+  const session = expressSession.default;
+  
+  const memorystore = await import('memorystore');
+  const MemoryStore = memorystore.default(session);
+  
+  app.use(
+    session({
+      store: new MemoryStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      }),
+      secret: process.env.SESSION_SECRET || "pelnora-jewellers-mlm-secret",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
+    })
+  );
 
   // Authentication routes
   app.post('/api/auth/register', async (req, res) => {
