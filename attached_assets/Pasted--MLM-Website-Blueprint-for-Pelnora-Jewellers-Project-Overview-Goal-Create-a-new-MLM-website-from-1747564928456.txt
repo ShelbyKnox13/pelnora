@@ -1,0 +1,190 @@
+ MLM Website Blueprint for Pelnora Jewellers
+🔧 Project Overview
+Goal:
+Create a new MLM website from scratch with a full-featured customer dashboard and a secure admin panel for managing users, earnings, packages, and auto pool plans.
+
+🔒 Roles
+Customer/User: Can sign up, purchase a package (EMI-based), view team/income, and request withdrawals.
+
+Admin: Can approve users, manage teams/earnings, track EMIs, export data, and oversee the auto pool.
+
+🖥️ Customer-Facing Frontend
+🏠 Homepage
+Header: Logo + Navigation
+
+Top-right: Login / Sign Up
+
+Sections:
+
+About Pelnora Jewellers
+
+Overview of Earning Plans
+
+Package Options (₹2,000 / ₹3,000 / ₹5,000 / ₹10,000)
+
+Call to Action: "Join Now" button
+
+🔐 Login / Sign Up Page
+Fields:
+
+Name, Email, Phone, Password
+
+Referral ID (optional)
+
+Sign Up triggers user account and redirects to dashboard
+
+📊 User Dashboard
+🪙 EMI Package Purchase
+EMI system (Monthly for 11 months)
+
+Auto bonus of 1 EMI after full payment on time
+
+💼 Earnings Overview
+Breakdown:
+
+Direct Income: 5%
+
+Binary Income: 5% (1:2 or 2:1 matching)
+
+Level Income: 62% of binary (distributed across 20 levels)
+
+Auto Pool Income
+
+EMI Bonus
+
+Net Income (after 10% deduction)
+
+🌳 Team View
+Binary Tree or Tabular view
+
+Total Team Members
+
+Level Unlock Indicator (1 direct = 2 levels)
+
+🔄 Auto Pool Tracker
+Entry after ₹10,000 total income
+
+1:3:9 matrix view
+
+Progress and level status
+
+💸 Withdrawals
+Show withdrawable amount (excluding investment)
+
+Withdrawal request form
+
+KYC & bank details
+
+Withdrawal history
+
+📈 EMI Tracker
+Package info
+
+Monthly payment status (Paid/Unpaid)
+
+Bonus eligibility
+
+🛠️ Admin Panel
+👥 User Management
+View full user list
+
+Approve/reject users
+
+Edit:
+
+Team structure
+
+Package status
+
+EMI payments
+
+Earnings
+
+Export to CSV
+
+Print user ID cards
+
+💰 Earnings Control
+View and adjust:
+
+Direct
+
+Binary
+
+Level
+
+Pool
+
+Deduction logic: 10% (2.5% to pool)
+
+🧾 EMI & Package Manager
+Monitor EMI statuses
+
+Trigger EMI bonuses
+
+View completed payments
+
+📤 Withdrawals Panel
+View withdrawal requests
+
+Approve/reject payments
+
+Record payment history
+
+🌀 Auto Pool Manager
+Track members in 1:3:9 structure
+
+Auto-fill or manually control pool
+
+Show pool income
+
+💻 Tech Stack (Suggested)
+Layer	Tech
+Frontend	React.js / Next.js + TailwindCSS
+Backend	Node.js (Express) / Laravel (PHP)
+Database	MongoDB / MySQL
+Auth	JWT / Firebase
+Admin Panel	React Admin / Custom Secure Dashboard
+Hosting	Vercel (frontend), Render/Heroku/AWS
+
+📆 Development Phases
+🥇 Phase 1 – Core MVP (2–3 weeks)
+Home Page
+
+User Registration / Login
+
+Package Purchase with EMI logic
+
+Basic Dashboard (income & team view)
+
+Admin Panel: user approval, earnings edit, EMI tracker
+
+🥈 Phase 2 – Extended Features (2–3 weeks)
+Auto Pool Matrix
+
+Withdrawal System
+
+Level Tracker
+
+EMI Bonus Automation
+
+CSV export, ID card printing
+
+Pool logic refinement
+
+🎨 Design Guidelines
+Brand tone: Premium, elegant (gold/white/black colors)
+
+Font: Clean, legible, luxury-style
+
+Mobile-first, responsive layout
+
+Easy navigation, icons for income types
+
+Would you like me to now generate:
+
+A site map (page-by-page navigation)?
+
+A React frontend starter template?
+
+A database schema and API outline?
