@@ -108,6 +108,16 @@ export class MemStorage implements IStorage {
       role: "admin",
       isActive: true,
     });
+    
+    // Create test user for development
+    this.createUser({
+      name: "Test User",
+      email: "test@pelnora.com",
+      phone: "9876543210",
+      password: "test123", // Using a password that meets the 6-character minimum
+      role: "user",
+      isActive: true,
+    });
   }
 
   // Generate a unique referral ID
