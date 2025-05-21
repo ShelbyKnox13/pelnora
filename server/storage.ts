@@ -16,7 +16,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByReferralId(referralId: string): Promise<User | undefined>;
-  createUser(user: InsertUser, referredById?: number): Promise<User>;
+  createUser(user: InsertUser, referredById?: number, placementPosition?: string): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   updateUserEarnings(id: number, amount: number): Promise<User | undefined>;
@@ -142,7 +142,7 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createUser(userData: InsertUser, referredById?: number): Promise<User> {
+  async createUser(userData: InsertUser, referredById?: number, placementPosition?: string): Promise<User> {
     const id = this.userIdCounter++;
     const referralId = this.generateReferralId();
     
@@ -164,7 +164,7 @@ export class MemStorage implements IStorage {
     
     this.users.set(id, user);
     
-    // If this user was referred, update the referrer's level access
+    // If this user was referred, update the referrer's level access and binary structure
     if (referredById) {
       const referrer = await this.getUser(referredById);
       if (referrer) {
@@ -173,6 +173,29 @@ export class MemStorage implements IStorage {
         await this.updateUser(referredById, { 
           unlockedLevels: Math.min(newLevels, 20) // Max 20 levels
         });
+        
+        // Create binary structure entry for this user
+        const position = placementPosition === "right" ? "right" : "left"; // Default to left if not specified
+        
+        // Create binary structure entry
+        await this.createBinaryStructure({
+          userId: id,
+          sponsorId: referredById,
+          position: position,
+          level: 1,
+          createdAt: new Date()
+        });
+        
+        // Update referrer's team count
+        if (position === "left") {
+          await this.updateUser(referredById, { 
+            leftTeamCount: referrer.leftTeamCount + 1 
+          });
+        } else {
+          await this.updateUser(referredById, { 
+            rightTeamCount: referrer.rightTeamCount + 1 
+          });
+        }
         
         // Add direct referral income (5% of package amount)
         // This will be added when they purchase a package
