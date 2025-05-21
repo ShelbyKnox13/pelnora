@@ -31,6 +31,7 @@ const signupSchema = z.object({
   phone: z.string().min(10, { message: "Please enter a valid phone number" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   referralId: z.string().optional(),
+  placement: z.enum(["left", "right"]).optional(),
   terms: z.boolean().refine((val) => val === true, {
     message: "You must agree to the terms and conditions",
   }),
@@ -67,9 +68,12 @@ export const AuthModals = ({
       phone: "",
       password: "",
       referralId: "",
+      placement: "left",
       terms: false,
     },
   });
+  
+  const [showPlacementOptions, setShowPlacementOptions] = useState(false);
 
   const handleLogin = async (data: LoginData) => {
     await login(data);
@@ -234,8 +238,49 @@ export const AuthModals = ({
                   placeholder="Enter referral code"
                   {...signupForm.register("referralId")}
                   className="mt-1"
+                  onChange={(e) => {
+                    if (e.target.value.trim().length > 0) {
+                      setShowPlacementOptions(true);
+                    } else {
+                      setShowPlacementOptions(false);
+                    }
+                  }}
                 />
               </div>
+              
+              {showPlacementOptions && (
+                <div className="border rounded-md p-3 bg-gray-50">
+                  <Label className="text-sm font-medium mb-2 block">Binary Placement Position</Label>
+                  <div className="flex space-x-4">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="placement-left"
+                        value="left"
+                        {...signupForm.register("placement")}
+                        className="h-4 w-4 text-gold-dark focus:ring-gold-dark border-gray-300"
+                        defaultChecked
+                      />
+                      <Label htmlFor="placement-left" className="ml-2 block text-sm">
+                        Left
+                      </Label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="placement-right"
+                        value="right"
+                        {...signupForm.register("placement")}
+                        className="h-4 w-4 text-gold-dark focus:ring-gold-dark border-gray-300"
+                      />
+                      <Label htmlFor="placement-right" className="ml-2 block text-sm">
+                        Right
+                      </Label>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Select your preferred position in your sponsor's binary tree</p>
+                </div>
+              )}
               
               <div className="flex items-start">
                 <Checkbox

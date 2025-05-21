@@ -20,21 +20,45 @@ export const HeroSection = () => {
               <p className="text-lg text-gray-100 mb-8">Join our exclusive network of entrepreneurs and unlock premium income opportunities with India's growing jewelry brand.</p>
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                 <Button 
-                  className="bg-gold-dark hover:bg-gold text-white font-bold py-3 px-6 rounded-md shadow-lg"
+                  size="lg"
+                  className="bg-gold hover:bg-gold-light text-white font-bold py-4 px-8 rounded-md shadow-lg text-lg"
                   onClick={() => setShowSignupModal(true)}
                 >
-                  Join Now
+                  SIGN UP NOW
                 </Button>
                 <Button 
+                  size="lg"
                   variant="outline" 
-                  className="bg-transparent hover:bg-white/10 text-white border-white"
+                  className="bg-transparent hover:bg-white/10 text-white border-white font-bold py-4 px-8 text-lg"
+                  onClick={() => setShowLoginModal(true)}
                 >
-                  Learn More
+                  LOGIN
                 </Button>
+              </div>
+              <div className="mt-4 bg-black/30 p-3 rounded-lg backdrop-blur-sm border border-white/20">
+                <p className="text-white text-sm">
+                  <span className="font-semibold text-gold">For testing:</span> Use email <span className="font-mono bg-black/40 px-1 rounded">test@pelnora.com</span> and password <span className="font-mono bg-black/40 px-1 rounded">test123</span>
+                </p>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Floating login/signup buttons */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2">
+        <Button
+          className="bg-gold hover:bg-gold-light text-white font-bold py-3 px-6 rounded-md shadow-lg"
+          onClick={() => setShowLoginModal(true)}
+        >
+          Login
+        </Button>
+        <Button
+          className="bg-purple-dark hover:bg-purple text-white font-bold py-3 px-6 rounded-md shadow-lg"
+          onClick={() => setShowSignupModal(true)}
+        >
+          Sign Up
+        </Button>
       </div>
 
       <AuthModals

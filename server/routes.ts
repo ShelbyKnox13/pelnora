@@ -83,17 +83,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Determine if user was referred
       let referredById = undefined;
+      let placementPosition = undefined;
+      
       if (req.body.referralId) {
         const referrer = await storage.getUserByReferralId(req.body.referralId);
         if (referrer) {
           referredById = referrer.id;
+          // Use the placement position from the request
+          placementPosition = req.body.placement || "left";
         }
       }
       
       // Create user
       const newUser = await storage.createUser(
         { ...validatedData, password: hashedPassword },
-        referredById
+        referredById,
+        placementPosition
       );
       
       // Remove password from response
