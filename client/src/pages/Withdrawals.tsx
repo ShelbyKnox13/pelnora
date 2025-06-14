@@ -16,10 +16,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { BackButton } from "@/components/ui/back-button";
 import { AlertTriangle, ArrowDownCircle, CheckCircle2, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { insertWithdrawalSchema } from "@shared/schema";
 import { Helmet } from "react-helmet";
+import { openBankDetailsDialog, ProfileDropdown } from "@/components/ProfileDropdown";
+// Import named exports only
+import { KYCVerificationModal, KYCStatus } from "@/components/KYCVerificationModal";
 
 // Extend the withdrawal schema with form-specific validation
 const withdrawalFormSchema = z.object({
@@ -37,6 +41,8 @@ const Withdrawals = () => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [hasKYCAccess, setHasKYCAccess] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -44,6 +50,20 @@ const Withdrawals = () => {
       navigate("/");
     }
   }, [isAuthenticated, authLoading, navigate]);
+  
+  // Check KYC status and show modal
+  useEffect(() => {
+    if (user) {
+      // Determine if user has completed KYC process
+      const hasCompletedKYC = user.kycStatus === 'approved';
+      setHasKYCAccess(hasCompletedKYC);
+      
+      // Show KYC modal if not completed
+      if (!hasCompletedKYC) {
+        setIsKYCModalOpen(true);
+      }
+    }
+  }, [user]);
 
   // Fetch withdrawals
   const { data: withdrawals, isLoading: withdrawalsLoading } = useQuery({
@@ -139,10 +159,24 @@ const Withdrawals = () => {
         <title>Withdrawals - Pelnora Jewellers</title>
         <meta name="description" content="Manage your Pelnora Jewellers earnings withdrawals, view transaction history, and request new withdrawals of your available balance." />
       </Helmet>
+      {/* KYC Verification Modal */}
+      <KYCVerificationModal 
+        isOpen={isKYCModalOpen}
+        onClose={() => setIsKYCModalOpen(false)}
+        allowClose={false}
+        onKYCSubmitted={() => {
+          // Refresh data but keep modal open until approved
+        }}
+      />
+      {/* Hidden ProfileDropdown component to enable bank details dialog functionality */}
+      <div style={{ display: 'none' }}>
+        <ProfileDropdown />
+      </div>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navbar />
         <main className="py-8 flex-grow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BackButton />
             <div className="mb-8">
               <h1 className="text-3xl font-playfair font-bold text-purple-dark">Withdrawals</h1>
               <p className="mt-1 text-sm text-gray-500">Manage your earnings withdrawals</p>
@@ -164,7 +198,14 @@ const Withdrawals = () => {
                   </div>
                   <div className="mt-6">
                     <Button 
-                      onClick={() => setIsFormOpen(!isFormOpen)}
+                      onClick={() => {
+                        // Check if user has completed KYC
+                        if (!hasKYCAccess) {
+                          setIsKYCModalOpen(true);
+                          return;
+                        }
+                        setIsFormOpen(!isFormOpen);
+                      }}
                       className="w-full bg-gold-dark hover:bg-gold text-white font-bold"
                       disabled={parseFloat(user?.withdrawableAmount || "0") <= 0}
                     >
@@ -337,7 +378,7 @@ const Withdrawals = () => {
                         <p className="text-sm text-gray-600">
                           You haven't added your bank details yet. Please update your profile to add bank details for withdrawals.
                         </p>
-                        <Button variant="link" className="p-0 h-auto text-purple-dark" onClick={() => navigate("/dashboard")}>
+                        <Button variant="link" className="p-0 h-auto text-purple-dark" onClick={openBankDetailsDialog}>
                           Update Profile
                         </Button>
                       </div>

@@ -61,6 +61,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom brand colors for Pelnora Jewellers
+        purple: {
+          DEFAULT: "#8B5CF6", // Purple-500
+          dark: "#6D28D9",    // Purple-700
+          light: "#A78BFA",   // Purple-400
+        },
+        gold: {
+          DEFAULT: "#F59E0B",  // Amber-500
+          dark: "#D97706",     // Amber-600
+          light: "#FCD34D",    // Amber-300
+        },
       },
       keyframes: {
         "accordion-down": {

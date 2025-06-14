@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackButton } from "@/components/ui/back-button";
 import { AlertCircle, ChevronRight, Users } from "lucide-react";
 import { Helmet } from "react-helmet";
 
@@ -58,6 +59,7 @@ const AutoPool = () => {
         <Navbar />
         <main className="py-8 flex-grow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BackButton />
             <div className="mb-8">
               <h1 className="text-3xl font-playfair font-bold text-purple-dark">Auto Pool</h1>
               <p className="mt-1 text-sm text-gray-500">Track your auto pool matrix and earnings</p>

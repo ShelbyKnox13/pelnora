@@ -7,14 +7,8 @@ export const PACKAGES = [
     monthlyAmount: 2000,
     popular: false,
     color: "purple-dark",
-    benefits: [
-      "All basic income plans",
-      "Direct & Binary income",
-      "Level income eligible",
-    ],
-    nonBenefits: [
-      "Auto pool entry",
-    ],
+    benefits: [],
+    nonBenefits: [],
   },
   {
     id: "gold",
@@ -23,14 +17,8 @@ export const PACKAGES = [
     monthlyAmount: 3000,
     popular: false,
     color: "teal-dark",
-    benefits: [
-      "All basic income plans",
-      "Enhanced binary matching",
-      "Level income up to 10",
-    ],
-    nonBenefits: [
-      "Auto pool entry",
-    ],
+    benefits: [],
+    nonBenefits: [],
   },
   {
     id: "platinum",
@@ -39,12 +27,7 @@ export const PACKAGES = [
     monthlyAmount: 5000,
     popular: true,
     color: "gold-dark",
-    benefits: [
-      "All income streams",
-      "Priority binary matching",
-      "Level income up to 15",
-      "Auto pool eligible",
-    ],
+    benefits: [],
     nonBenefits: [],
   },
   {
@@ -54,12 +37,7 @@ export const PACKAGES = [
     monthlyAmount: 10000,
     popular: false,
     color: "purple-dark",
-    benefits: [
-      "Maximum earnings on all streams",
-      "Elite binary matching rate",
-      "All 20 levels unlocked",
-      "Priority auto pool placement",
-    ],
+    benefits: [],
     nonBenefits: [],
   },
 ];

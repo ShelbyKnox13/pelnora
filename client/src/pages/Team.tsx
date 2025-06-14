@@ -8,6 +8,7 @@ import { BinaryTree } from "@/components/team/BinaryTree";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackButton } from "@/components/ui/back-button";
 import { Helmet } from "react-helmet";
 
 const Team = () => {
@@ -24,6 +25,12 @@ const Team = () => {
   // Fetch binary structure
   const { data: binaryStructure, isLoading: structureLoading } = useQuery({
     queryKey: ['/api/binary-structure/me'],
+    enabled: isAuthenticated,
+  });
+
+  // Fetch level statistics
+  const { data: levelStats, isLoading: levelStatsLoading } = useQuery({
+    queryKey: ['/api/level-statistics/me'],
     enabled: isAuthenticated,
   });
 
@@ -54,6 +61,7 @@ const Team = () => {
         <Navbar />
         <main className="py-8 flex-grow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BackButton />
             <div className="mb-8">
               <h1 className="text-3xl font-playfair font-bold text-purple-dark">My Team</h1>
               <p className="mt-1 text-sm text-gray-500">View your team structure and performance</p>
@@ -110,15 +118,28 @@ const Team = () => {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {/* This would ideally be populated with actual team data */}
-                            <tr>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sample Member</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Left</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1</td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
-                              </td>
-                            </tr>
+                            {binaryStructure?.downline?.map((member: any) => (
+                              <tr key={member.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {member.name}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {member.position === 'left' ? 'Left' : 'Right'}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {member.level}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    member.isActive 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {member.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
@@ -141,77 +162,121 @@ const Team = () => {
                     <CardTitle className="text-xl font-medium text-gray-900">Level Statistics</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                          <h4 className="font-bold text-lg text-charcoal mb-2">Unlocked Levels</h4>
-                          <div className="flex items-center">
-                            <div className="text-2xl font-bold text-gold-dark">8 / 20</div>
-                            <div className="ml-auto bg-gold-light/20 px-2 py-1 rounded text-xs font-medium text-gold-dark">
-                              40% Complete
+                    {levelStatsLoading ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                              <Skeleton className="h-6 w-32 mb-2" />
+                              <Skeleton className="h-8 w-24 mb-2" />
+                              <Skeleton className="h-4 w-full" />
+                            </div>
+                          ))}
+                        </div>
+                        <Skeleton className="h-64 w-full" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                            <h4 className="font-bold text-lg text-charcoal mb-2">Unlocked Levels</h4>
+                            <div className="flex items-center">
+                              <div className="text-2xl font-bold text-gold-dark">
+                                {levelStats?.unlockedLevels || 0} / {levelStats?.maxLevels || 20}
+                              </div>
+                              <div className="ml-auto bg-gold-light/20 px-2 py-1 rounded text-xs font-medium text-gold-dark">
+                                {levelStats?.completionPercentage || 0}% Complete
+                              </div>
+                            </div>
+                            <div className="mt-2 overflow-hidden bg-gray-200 rounded-full">
+                              <div 
+                                className="h-2 bg-gold-dark" 
+                                style={{ width: `${levelStats?.completionPercentage || 0}%` }}
+                              ></div>
                             </div>
                           </div>
-                          <div className="mt-2 overflow-hidden bg-gray-200 rounded-full">
-                            <div className="h-2 bg-gold-dark" style={{ width: '40%' }}></div>
+                          
+                          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                            <h4 className="font-bold text-lg text-charcoal mb-2">Direct Referrals</h4>
+                            <div className="flex items-center">
+                              <div className="text-2xl font-bold text-purple-dark">
+                                {levelStats?.directReferralCount || 0}
+                              </div>
+                              <div className="ml-auto text-sm text-gray-500">Each referral unlocks 2 levels</div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                            <h4 className="font-bold text-lg text-charcoal mb-2">Next Level Unlock</h4>
+                            <div className="flex items-center">
+                              {levelStats?.nextLevel ? (
+                                <>
+                                  <div className="text-2xl font-bold text-teal-dark">Level {levelStats.nextLevel}</div>
+                                  <div className="ml-auto text-sm text-gray-500">
+                                    Need {levelStats.referralsNeededForNextLevel} more direct referral{levelStats.referralsNeededForNextLevel !== 1 ? 's' : ''}
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="text-2xl font-bold text-green-600">All Unlocked!</div>
+                                  <div className="ml-auto text-sm text-gray-500">Maximum levels reached</div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                          <h4 className="font-bold text-lg text-charcoal mb-2">Direct Referrals</h4>
-                          <div className="flex items-center">
-                            <div className="text-2xl font-bold text-purple-dark">4</div>
-                            <div className="ml-auto text-sm text-gray-500">Each referral unlocks 2 levels</div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                          <h4 className="font-bold text-lg text-charcoal mb-2">Next Level Unlock</h4>
-                          <div className="flex items-center">
-                            <div className="text-2xl font-bold text-teal-dark">Level 9</div>
-                            <div className="ml-auto text-sm text-gray-500">Need 1 more direct referral</div>
-                          </div>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {levelStats?.levels?.map((level, i) => (
+                                <tr key={level.level} className={level.status === 'locked' ? 'bg-gray-50' : ''}>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    Level {level.level}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      level.status === 'unlocked' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {level.status === 'unlocked' ? 'Unlocked' : 'Locked'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {level.status === 'unlocked' ? level.members : '-'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                                    <span className={level.status === 'unlocked' ? 'text-green-600' : 'text-gray-400'}>
+                                      {level.status === 'unlocked' ? level.earnings : '-'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              )) || Array(20).fill(0).map((_, i) => (
+                                <tr key={i} className="bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">Level {i + 1}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                      Locked
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">-</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">-</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                      
-                      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {Array(8).fill(0).map((_, i) => (
-                              <tr key={i}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Level {i + 1}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                    Unlocked
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Math.pow(2, i + 1)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-mono">₹{(1000 * Math.pow(0.8, i)).toFixed(2)}</td>
-                              </tr>
-                            ))}
-                            {Array(12).fill(0).map((_, i) => (
-                              <tr key={i + 8} className="bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">Level {i + 9}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                    Locked
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">-</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">-</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

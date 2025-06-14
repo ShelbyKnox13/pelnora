@@ -9,6 +9,7 @@ export const emiStatusEnum = pgEnum('emi_status', ['pending', 'paid', 'late', 'b
 export const withdrawalStatusEnum = pgEnum('withdrawal_status', ['pending', 'approved', 'rejected']);
 export const earningTypeEnum = pgEnum('earning_type', ['direct', 'binary', 'level', 'autopool', 'emi_bonus']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['emi_payment', 'earning', 'withdrawal', 'deduction']);
+export const kycStatusEnum = pgEnum('kyc_status', ['not_submitted', 'pending', 'approved', 'rejected']);
 
 // Users table
 export const users = pgTable("users", {
@@ -23,12 +24,20 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").default(true).notNull(),
   leftTeamCount: integer("left_team_count").default(0).notNull(),
   rightTeamCount: integer("right_team_count").default(0).notNull(),
+  leftCarryForward: numeric("left_carry_forward").default("0").notNull(),
+  rightCarryForward: numeric("right_carry_forward").default("0").notNull(),
   totalEarnings: numeric("total_earnings").default("0").notNull(),
   withdrawableAmount: numeric("withdrawable_amount").default("0").notNull(),
   bankName: text("bank_name"),
   accountNumber: text("account_number"),
   ifscCode: text("ifsc_code"),
-  kycStatus: boolean("kyc_status").default(false).notNull(),
+  panNumber: text("pan_number"),
+  idProofType: text("id_proof_type"),
+  idProofNumber: text("id_proof_number"),
+  panCardImage: text("pan_card_image"),
+  idProofImage: text("id_proof_image"),
+  kycStatus: kycStatusEnum("kyc_status").default('not_submitted').notNull(),
+  kycRejectionReason: text("kyc_rejection_reason"),
   unlockedLevels: integer("unlocked_levels").default(0).notNull(),
   autoPoolEligible: boolean("auto_pool_eligible").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -118,6 +127,8 @@ export const insertUserSchema = createInsertSchema(users)
     referralId: true, 
     leftTeamCount: true, 
     rightTeamCount: true, 
+    leftCarryForward: true,
+    rightCarryForward: true,
     totalEarnings: true,
     withdrawableAmount: true,
     unlockedLevels: true,

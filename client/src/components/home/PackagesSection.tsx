@@ -22,7 +22,7 @@ export const PackagesSection = () => {
             <p className="max-w-3xl mx-auto text-gray-600">Choose the investment package that fits your goals. All packages include our exclusive 11-month EMI plan with a complimentary bonus month.</p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-8">
             {PACKAGES.map((pkg, index) => (
               <div 
                 key={pkg.id}

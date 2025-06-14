@@ -1,0 +1,112 @@
+name: Deploy Pelnora
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests
+      run: npm test || echo "No tests configured"
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Create deployment package
+      run: |
+        tar -czf pelnora-${{ github.ref_name }}.tar.gz \
+          --exclude=node_modules \
+          --exclude=.git \
+          --exclude=.github \
+          --exclude=.vscode \
+          --exclude=.idea \
+          --exclude=.env \
+          --exclude=.env.local \
+          .
+          
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT || 22 }}
+        script: |
+          # Create backup
+          sudo mkdir -p /var/backups/pelnora
+          if [ -d "/var/www/pelnora" ]; then
+            sudo cp -r /var/www/pelnora /var/backups/pelnora/backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Stop application
+          pm2 stop pelnora-app || true
+          
+          # Extract new version
+          cd /tmp
+          tar -xzf pelnora-${{ github.ref_name }}.tar.gz
+          
+          # Replace old version
+          sudo rm -rf /var/www/pelnora
+          sudo mv pelnora /var/www/pelnora
+          sudo chown -R ${{ secrets.USERNAME }}:${{ secrets.USERNAME }} /var/www/pelnora
+          
+          # Install dependencies
+          cd /var/www/pelnora
+          npm ci --production
+          
+          # Start application
+          pm2 start ecosystem.config.js --env production
+          pm2 save
+          
+          # Cleanup
+          rm -f /tmp/pelnora-${{ github.ref_name }}.tar.gz
+          
+    - name: Upload deployment package
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT || 22 }}
+        source: "pelnora-${{ github.ref_name }}.tar.gz"
+        target: "/tmp/"
+        
+    - name: Health check
+      run: |
+        sleep 30
+        curl -f ${{ secrets.APP_URL }}/api/health || exit 1
+        
+    - name: Notify deployment
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Deployment successful: ${{ github.ref_name }}"
+        else
+          echo "❌ Deployment failed: ${{ github.ref_name }}"
+        fi

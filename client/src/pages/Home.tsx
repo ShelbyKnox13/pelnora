@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/home/HeroSection";
 import { AboutSection } from "@/components/home/AboutSection";
@@ -13,6 +13,21 @@ import { AuthModals } from "@/components/auth/AuthModals";
 const Home = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+
+  // Check for referral ID and show signup modal automatically
+  useEffect(() => {
+    const checkReferralId = () => {
+      const storedRefId = sessionStorage.getItem('referralId');
+      if (storedRefId) {
+        // Small delay to ensure the component is fully mounted
+        setTimeout(() => {
+          setShowSignupModal(true);
+        }, 100);
+      }
+    };
+
+    checkReferralId();
+  }, []);
 
   return (
     <>

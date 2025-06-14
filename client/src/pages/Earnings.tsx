@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { EarningsBreakdown } from "@/components/earnings/EarningsBreakdown";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BackButton } from "@/components/ui/back-button";
 import { 
   BarChart, 
   Bar, 
@@ -130,6 +131,7 @@ const Earnings = () => {
         <Navbar />
         <main className="py-8 flex-grow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BackButton />
             <div className="mb-8">
               <h1 className="text-3xl font-playfair font-bold text-purple-dark">My Earnings</h1>
               <p className="mt-1 text-sm text-gray-500">Track and analyze your income streams</p>

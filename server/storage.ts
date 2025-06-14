@@ -8,7 +8,7 @@ import {
   autoPool, type AutoPool, type InsertAutoPool,
   transactions, type Transaction, type InsertTransaction
 } from "@shared/schema";
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // Interface for all storage operations
 export interface IStorage {
@@ -21,10 +21,34 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUserEarnings(id: number, amount: number): Promise<User | undefined>;
   getUserCount(): Promise<number>;
+  getAdminUsers(): Promise<User[]>;
+  
+  // KYC operations
+  updateUserKYC(data: {
+    userId: number;
+    panNumber: string;
+    idProofType: string;
+    idProofNumber: string;
+    panCardImage: string;
+    idProofImage: string;
+    kycStatus: string;
+  }): Promise<User | undefined>;
+  updateUserKYCStatus(data: {
+    userId: number;
+    kycStatus: string;
+    kycRejectionReason: string | null;
+  }): Promise<User | undefined>;
+  getKYCRequests(status?: string): Promise<any[]>;
+  createNotification(data: {
+    userId: number;
+    type: string;
+    message: string;
+  }): Promise<any>;
   
   // Package operations
   createPackage(packageData: InsertPackage): Promise<Package>;
   getPackageByUserId(userId: number): Promise<Package | undefined>;
+  getUserPackage(userId: number): Promise<Package | undefined>;
   updatePackage(id: number, data: Partial<Package>): Promise<Package | undefined>;
   getAllPackages(): Promise<Package[]>;
   
@@ -38,10 +62,12 @@ export interface IStorage {
   createBinaryStructure(data: InsertBinaryStructure): Promise<BinaryStructure>;
   getBinaryStructureByUserId(userId: number): Promise<BinaryStructure | undefined>;
   getUsersBinaryDownline(userId: number): Promise<BinaryStructure[]>;
+  getBinaryBusinessInfo(userId: number): Promise<{ leftTeamBusiness: string, rightTeamBusiness: string, leftCarryForward: string, rightCarryForward: string }>;
   
   // Earnings operations
   createEarning(earningData: InsertEarning): Promise<Earning>;
   getEarningsByUserId(userId: number): Promise<Earning[]>;
+  getUserEarnings(userId: number): Promise<Earning[]>;
   getAllEarnings(): Promise<Earning[]>;
   
   // Withdrawal operations
@@ -58,6 +84,13 @@ export interface IStorage {
   // Transaction operations
   createTransaction(data: InsertTransaction): Promise<Transaction>;
   getTransactionsByUserId(userId: number): Promise<Transaction[]>;
+  
+  // Level structure operations
+  getUsersAtLevel(userId: number, level: number): Promise<User[]>;
+  calculateLevelEarnings(userId: number): Promise<any[]>;
+  
+  // Demo earnings generation
+  generateDemoEarnings(userId: number): Promise<void>;
 }
 
 // Memory storage implementation
@@ -109,14 +142,22 @@ export class MemStorage implements IStorage {
       isActive: true,
     });
     
-    // Create test user for development
+    // Create Pelnora user for testing
     this.createUser({
-      name: "Test User",
+      name: "Pelnora",
       email: "test@pelnora.com",
       phone: "9876543210",
-      password: "test123", // Using a password that meets the 6-character minimum
+      password: "test123",
       role: "user",
       isActive: true,
+    }).then(async (pelnoraUser) => {
+      // Create a Diamond package (₹10,000/month) for Pelnora user
+      await this.createPackage({
+        userId: pelnoraUser.id,
+        packageType: "diamond",
+        monthlyAmount: "10000",
+        totalMonths: 11,
+      });
     });
   }
 
@@ -153,9 +194,11 @@ export class MemStorage implements IStorage {
       referredBy: referredById,
       leftTeamCount: 0,
       rightTeamCount: 0,
+      leftCarryForward: "0",
+      rightCarryForward: "0",
       totalEarnings: "0",
       withdrawableAmount: "0",
-      unlockedLevels: referredById ? 2 : 0, // If referred, start with 2 levels
+      unlockedLevels: 0, // Start with 0 levels, unlock based on referrals
       autoPoolEligible: false,
       kycStatus: false,
       isActive: true,
@@ -163,11 +206,14 @@ export class MemStorage implements IStorage {
     };
     
     this.users.set(id, user);
+    console.log(`Created user: ${user.name} (ID: ${id})`);
     
     // If this user was referred, update the referrer's level access and binary structure
     if (referredById) {
       const referrer = await this.getUser(referredById);
       if (referrer) {
+        console.log(`Setting up binary structure for ${user.name} under referrer ${referrer.name}`);
+        
         // Add 2 more levels for each direct referral
         const newLevels = referrer.unlockedLevels + 2;
         await this.updateUser(referredById, { 
@@ -180,10 +226,9 @@ export class MemStorage implements IStorage {
         // Create binary structure entry
         await this.createBinaryStructure({
           userId: id,
-          sponsorId: referredById,
+          parentId: referredById,
           position: position,
           level: 1,
-          createdAt: new Date()
         });
         
         // Update referrer's team count
@@ -191,14 +236,13 @@ export class MemStorage implements IStorage {
           await this.updateUser(referredById, { 
             leftTeamCount: referrer.leftTeamCount + 1 
           });
+          console.log(`Updated ${referrer.name}'s left team count to ${referrer.leftTeamCount + 1}`);
         } else {
           await this.updateUser(referredById, { 
             rightTeamCount: referrer.rightTeamCount + 1 
           });
+          console.log(`Updated ${referrer.name}'s right team count to ${referrer.rightTeamCount + 1}`);
         }
-        
-        // Add direct referral income (5% of package amount)
-        // This will be added when they purchase a package
       }
     }
     
@@ -243,6 +287,298 @@ export class MemStorage implements IStorage {
     return this.users.size;
   }
 
+  // All earnings are now calculated in real-time when packages are purchased
+
+  // Real earnings calculation when package is purchased
+  async calculateRealEarnings(buyerUserId: number, packagePurchased: Package): Promise<void> {
+    console.log(`Calculating real earnings for package purchase by user ${buyerUserId}`);
+    
+    const buyer = await this.getUser(buyerUserId);
+    if (!buyer) {
+      console.log(`Buyer user ${buyerUserId} not found`);
+      return;
+    }
+
+    const monthlyAmount = parseFloat(packagePurchased.monthlyAmount);
+    const totalPackageValue = monthlyAmount * packagePurchased.totalMonths;
+    console.log(`Package purchased: ${packagePurchased.packageType} - Monthly: ₹${monthlyAmount}, Total: ₹${totalPackageValue}`);
+
+    // 1. DIRECT INCOME: 5% of monthly amount (one-time payment at signup)
+    if (buyer.referredBy) {
+      const referrer = await this.getUser(buyer.referredBy);
+      if (referrer) {
+        const directIncome = monthlyAmount * 0.05; // 5% of monthly amount only
+        
+        await this.createEarning({
+          userId: referrer.id,
+          amount: directIncome.toString(),
+          earningType: 'direct',
+          description: `Direct income: 5% of ${buyer.name}'s ${packagePurchased.packageType} package (₹${monthlyAmount}/month)`,
+          relatedUserId: buyer.id,
+        });
+        
+        await this.updateUserEarnings(referrer.id, directIncome);
+        console.log(`Direct income: ₹${directIncome} paid to ${referrer.name} (ID: ${referrer.id})`);
+        
+        // 2. BINARY INCOME: Calculate binary income for entire upline
+        await this.calculateUplineBinaryIncome(referrer.id, totalPackageValue);
+        
+        // 3. LEVEL INCOME: Distribute to upline levels
+        // The calculateLevelIncome function will now properly skip the direct referrer
+        // and only distribute level income to the appropriate upline users
+        await this.calculateLevelIncome(buyerUserId, monthlyAmount);
+      }
+    }
+  }
+
+  // Calculate binary income for a user with proper 2:1 or 1:2 matching and carry forward
+  async calculateBinaryIncome(userId: number, newMemberPackageAmount: number): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    console.log(`Calculating binary income for user ${userId} with new member package amount: ₹${newMemberPackageAmount}`);
+
+    // Get all binary structures to calculate the complete downline (including team members' referrals)
+    const allBinaryStructures = Array.from(this.binaryStructures.values());
+    const allUsers = await this.getAllUsers();
+    
+    // Recursively find all users in a position (left or right) including their downlines
+    const getCompleteTeam = (rootUserId: number, position: string): number[] => {
+      // Get direct children first
+      const directChildren = allBinaryStructures
+        .filter(bs => bs.parentId === rootUserId && bs.position === position)
+        .map(bs => bs.userId);
+      
+      console.log(`Direct ${position} children for user ${rootUserId}:`, directChildren);
+      
+      // Then recursively get all of their children (regardless of position)
+      let allTeamMembers = [...directChildren];
+      
+      for (const childId of directChildren) {
+        // For each direct child, get their entire downline
+        const leftDownline = getCompleteTeam(childId, 'left');
+        const rightDownline = getCompleteTeam(childId, 'right');
+        allTeamMembers = [...allTeamMembers, ...leftDownline, ...rightDownline];
+      }
+      
+      return allTeamMembers;
+    };
+    
+    // Get complete left and right teams
+    const leftTeamUserIds = getCompleteTeam(userId, 'left');
+    const rightTeamUserIds = getCompleteTeam(userId, 'right');
+    
+    const leftTeamUsers = allUsers.filter(u => leftTeamUserIds.includes(u.id));
+    const rightTeamUsers = allUsers.filter(u => rightTeamUserIds.includes(u.id));
+
+    // Calculate actual business volumes based on package amounts
+    let leftVolume = parseFloat(user.leftCarryForward || "0");
+    let rightVolume = parseFloat(user.rightCarryForward || "0");
+
+    console.log(`Initial volumes - Left: ₹${leftVolume}, Right: ₹${rightVolume}`);
+
+    // Add volumes from left team members
+    for (const leftUser of leftTeamUsers) {
+      const userPackage = await this.getPackageByUserId(leftUser.id);
+      if (userPackage) {
+        // Use total package value (monthly amount * total months) for business volume
+        const packageValue = parseFloat(userPackage.monthlyAmount) * userPackage.totalMonths;
+        leftVolume += packageValue;
+        console.log(`Added ₹${packageValue} to left volume from ${leftUser.name}'s package`);
+      }
+    }
+
+    // Add volumes from right team members
+    for (const rightUser of rightTeamUsers) {
+      const userPackage = await this.getPackageByUserId(rightUser.id);
+      if (userPackage) {
+        // Use total package value (monthly amount * total months) for business volume
+        const packageValue = parseFloat(userPackage.monthlyAmount) * userPackage.totalMonths;
+        rightVolume += packageValue;
+        console.log(`Added ₹${packageValue} to right volume from ${rightUser.name}'s package`);
+      }
+    }
+
+    console.log(`Current volumes - Left: ₹${leftVolume}, Right: ₹${rightVolume}`);
+
+    // Get previous earnings to check if this is the first binary or not
+    const previousBinaryEarnings = (await this.getEarningsByUserId(userId))
+      .filter(e => e.earningType === 'binary');
+    
+    let totalBinaryIncome = 0;
+    let binaryMatches = 0;
+    let matchRatio = '1:1';
+
+    // For the first binary only, use 2:1 or 1:2 matching
+    if (previousBinaryEarnings.length === 0) {
+      console.log('First binary match - checking for 2:1 or 1:2 ratio');
+      // Check if first binary matching is possible (need at least 2:1 or 1:2 ratio)
+      if ((leftTeamUsers.length >= 2 && rightTeamUsers.length >= 1) || 
+          (leftTeamUsers.length >= 1 && rightTeamUsers.length >= 2)) {
+        
+        const leftCount = leftTeamUsers.length;
+        const rightCount = rightTeamUsers.length;
+        
+        // Special first binary matching with 2:1 or 1:2 ratio
+        if (leftCount >= 2 * rightCount) {
+          // More left members: form 2:1 pairs for first binary
+          binaryMatches = rightCount; // Each right member can pair with 2 left members
+          matchRatio = '2:1';
+        } else if (rightCount >= 2 * leftCount) {
+          // More right members: form 1:2 pairs for first binary
+          binaryMatches = leftCount; // Each left member can pair with 2 right members
+          matchRatio = '1:2';
+        } else {
+          // Balanced teams: form 1:1 pairs
+          binaryMatches = Math.min(leftCount, rightCount);
+        }
+      }
+    } else {
+      console.log('Subsequent binary match - using 1:1 ratio');
+      // For subsequent binaries, always use 1:1 matching
+      if (leftTeamUsers.length >= 1 && rightTeamUsers.length >= 1) {
+        binaryMatches = Math.min(leftTeamUsers.length, rightTeamUsers.length);
+      }
+    }
+
+    console.log(`Binary matches possible: ${binaryMatches} (Left: ${leftTeamUsers.length}, Right: ${rightTeamUsers.length}, Ratio: ${matchRatio})`);
+
+    if (binaryMatches > 0 && leftVolume > 0 && rightVolume > 0) {
+      // Calculate binary income based on weaker side volume
+      const weakerSideVolume = Math.min(leftVolume, rightVolume);
+      totalBinaryIncome = weakerSideVolume * 0.05; // 5% of weaker side
+      
+      console.log(`Binary income calculation: Weaker side volume: ₹${weakerSideVolume}, Income: ₹${totalBinaryIncome}`);
+
+      if (totalBinaryIncome > 0) {
+        await this.createEarning({
+          userId: userId,
+          amount: totalBinaryIncome.toString(),
+          earningType: 'binary',
+          description: `Binary matching income: ${binaryMatches} pairs with ${matchRatio} ratio (Left: ₹${leftVolume}, Right: ₹${rightVolume})`,
+        });
+        
+        await this.updateUserEarnings(userId, totalBinaryIncome);
+        console.log(`Total binary income: ₹${totalBinaryIncome} paid to user ${userId}`);
+      }
+
+      // Calculate carry forward (unmatched volume)
+      // The matched volume is consumed, remaining becomes carry forward
+      const matchedVolume = Math.min(leftVolume, rightVolume);
+      leftVolume = leftVolume - matchedVolume;
+      rightVolume = rightVolume - matchedVolume;
+    }
+
+    // Update carry forward volumes (remaining unmatched volume)
+    await this.updateUser(userId, {
+      leftCarryForward: leftVolume.toString(),
+      rightCarryForward: rightVolume.toString()
+    });
+
+    console.log(`Updated carry forward - Left: ₹${leftVolume}, Right: ₹${rightVolume}`);
+  }
+
+  // Calculate binary income for entire upline when a new member joins
+  async calculateUplineBinaryIncome(startUserId: number, newMemberPackageAmount: number): Promise<void> {
+    let currentUserId = startUserId;
+    let level = 1;
+    
+    // Calculate binary income for up to 10 levels in the upline
+    while (level <= 10 && currentUserId) {
+      const currentUser = await this.getUser(currentUserId);
+      if (!currentUser) break;
+      
+      console.log(`Calculating binary income for upline level ${level}, user ${currentUserId}`);
+      
+      // Calculate binary income for this user
+      await this.calculateBinaryIncome(currentUserId, newMemberPackageAmount);
+      
+      // Move to next level (parent)
+      if (currentUser.referredBy) {
+        currentUserId = currentUser.referredBy;
+        level++;
+      } else {
+        break; // Reached the top of the tree
+      }
+    }
+  }
+
+  // Calculate level income distribution based on actual percentages
+  async calculateLevelIncome(buyerUserId: number, monthlyAmount: number): Promise<void> {
+    console.log(`Calculating level income for buyer ${buyerUserId} with package amount: ₹${monthlyAmount}`);
+    
+    // Level income percentages (updated per requirements)
+    const levelPercentages = [
+      0.15, // Level 1: 15%
+      0.10, // Level 2: 10%
+      0.05, // Level 3: 5%
+      0.03, 0.03, 0.03, 0.03, 0.03, // Levels 4-8: 3% each
+      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, // Levels 9-14: 2% each
+      0.01, 0.01, 0.01, 0.01, 0.01, 0.01  // Levels 15-20: 1% each
+    ];
+
+    const directIncome = monthlyAmount * 0.05; // 5% direct income base
+    const allUsers = await this.getAllUsers();
+    
+    // Find the buyer's direct referrer first
+    const buyerUser = await this.getUser(buyerUserId);
+    if (!buyerUser || !buyerUser.referredBy) {
+      console.log(`No direct referrer found for user ${buyerUserId}. Skipping level income.`);
+      return;
+    }
+    
+    // Get the direct referrer
+    const directReferrerId = buyerUser.referredBy;
+    const directReferrer = await this.getUser(directReferrerId);
+    if (!directReferrer) {
+      console.log(`Direct referrer with ID ${directReferrerId} not found. Skipping level income.`);
+      return;
+    }
+    
+    console.log(`Buyer's direct referrer is ${directReferrer.name} (ID: ${directReferrerId})`);
+    
+    // Skip level income for direct referrer (they already got direct income)
+    console.log(`Skipping level income for direct referrer ${directReferrer.name}`);
+    
+    // Calculate level income for everyone else in the upline chain starting from the direct referrer's referrer
+    let currentReferrerId = directReferrer.referredBy;
+    let currentLevel = 1; // Start at level 1 for the direct referrer's referrer
+    
+    while (currentReferrerId && currentLevel <= 20) {
+      const uplineUser = await this.getUser(currentReferrerId);
+      if (!uplineUser) break;
+      
+      // Check if this upline user has unlocked this level based on their direct referrals
+      const directReferralCount = allUsers.filter(u => u.referredBy === uplineUser.id).length;
+      const unlockedLevels = directReferralCount * 2;
+      
+      if (currentLevel <= unlockedLevels) {
+        // Calculate level income
+        const levelIncome = directIncome * levelPercentages[currentLevel - 1];
+        
+        if (levelIncome > 0) {
+          // Create level income for this upline user
+          await this.createEarning({
+            userId: uplineUser.id,
+            amount: levelIncome.toString(),
+            earningType: 'level',
+            description: `Level ${currentLevel} income: ${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}% from ${buyerUser.name}'s package (₹${monthlyAmount})`,
+            relatedUserId: buyerUserId,
+          });
+          
+          await this.updateUserEarnings(uplineUser.id, levelIncome);
+          console.log(`Level ${currentLevel} income: ₹${levelIncome.toFixed(2)} (${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}%) paid to ${uplineUser.name} (ID: ${uplineUser.id})`);
+        }
+      } else {
+        console.log(`Level ${currentLevel} locked for user ${uplineUser.id} (${uplineUser.name}). Needs ${Math.ceil(currentLevel / 2)} direct referrals, has ${directReferralCount}`);
+      }
+      
+      // Move up to the next person in the upline
+      currentReferrerId = uplineUser.referredBy;
+      currentLevel++;
+    }
+  }
+
   // Package operations
   async createPackage(packageData: InsertPackage): Promise<Package> {
     const id = this.packageIdCounter++;
@@ -260,14 +596,44 @@ export class MemStorage implements IStorage {
       nextPaymentDue: nextPaymentDate,
     };
     
+    console.log(`📦 PACKAGE CREATED: User ID ${packageData.userId}, Package Type: ${packageData.packageType}, Amount: ${packageData.monthlyAmount}`);
+    
     this.packages.set(id, newPackage);
+    console.log(`Total packages in storage after creation: ${this.packages.size}`);
+    
+    // Calculate and distribute real earnings when package is purchased
+    await this.calculateRealEarnings(packageData.userId, newPackage);
+    
     return newPackage;
   }
 
   async getPackageByUserId(userId: number): Promise<Package | undefined> {
-    return Array.from(this.packages.values()).find(
-      (pkg) => pkg.userId === userId
-    );
+    console.log(`Looking for package for user ID ${userId}`);
+    const allPackages = Array.from(this.packages.values());
+    
+    // Find all packages for this user (should be just one, but let's check)
+    const userPackages = allPackages.filter(pkg => pkg.userId === userId);
+    
+    console.log(`Found ${userPackages.length} packages for user ${userId}`);
+    
+    if (userPackages.length > 0) {
+      // For debugging, let's log all packages found for this user
+      userPackages.forEach(pkg => {
+        console.log(`Package ID: ${pkg.id}, Type: ${pkg.packageType}, Amount: ${pkg.monthlyAmount}`);
+      });
+      
+      // Return the most recently created package (should be the only one, but just in case)
+      return userPackages.sort((a, b) => 
+        new Date(b.startDate || b.createdAt).getTime() - new Date(a.startDate || a.createdAt).getTime()
+      )[0];
+    } else {
+      console.log(`⚠️ No package found for user ${userId}`);
+      return undefined;
+    }
+  }
+
+  async getUserPackage(userId: number): Promise<Package | undefined> {
+    return this.getPackageByUserId(userId);
   }
 
   async updatePackage(id: number, data: Partial<Package>): Promise<Package | undefined> {
@@ -302,8 +668,7 @@ export class MemStorage implements IStorage {
       const isCompleted = paidMonths >= pkg.totalMonths;
       
       // Check if bonus is earned (all payments made on time)
-      const bonusEarned = isCompleted && this.emiPayments
-        .values()
+      const bonusEarned = isCompleted && Array.from(this.emiPayments.values())
         .filter(payment => payment.packageId === pkg.id)
         .every(payment => payment.status === 'paid' || payment.status === 'bonus_earned');
       
@@ -364,22 +729,7 @@ export class MemStorage implements IStorage {
     
     this.binaryStructures.set(id, newBinaryStructure);
     
-    // Update user's team counts
-    if (data.parentId) {
-      const parent = await this.getUser(data.parentId);
-      if (parent) {
-        const position = data.position;
-        if (position === 'left') {
-          await this.updateUser(data.parentId, { 
-            leftTeamCount: parent.leftTeamCount + 1 
-          });
-        } else if (position === 'right') {
-          await this.updateUser(data.parentId, { 
-            rightTeamCount: parent.rightTeamCount + 1 
-          });
-        }
-      }
-    }
+    // Team counts are updated in createUser method to avoid double counting
     
     return newBinaryStructure;
   }
@@ -394,6 +744,107 @@ export class MemStorage implements IStorage {
     return Array.from(this.binaryStructures.values()).filter(
       (structure) => structure.parentId === userId
     );
+  }
+  
+  async getBinaryBusinessInfo(userId: number): Promise<{ leftTeamBusiness: string, rightTeamBusiness: string, leftCarryForward: string, rightCarryForward: string }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      console.log(`User ${userId} not found`);
+      return {
+        leftTeamBusiness: "0",
+        rightTeamBusiness: "0",
+        leftCarryForward: "0",
+        rightCarryForward: "0"
+      };
+    }
+    
+    console.log(`\n=== Binary Business Info Calculation for ${user.name} (ID: ${userId}) ===`);
+    console.log(`User team counts - Left: ${user.leftTeamCount}, Right: ${user.rightTeamCount}`);
+    
+    // Get all binary structures to calculate the complete downline (including team members' referrals)
+    const allBinaryStructures = Array.from(this.binaryStructures.values());
+    const allUsers = await this.getAllUsers();
+    
+    // Recursively find all users in a position (left or right) including their downlines
+    const getCompleteTeam = (rootUserId: number, position: string): number[] => {
+      // Get direct children first
+      const directChildren = allBinaryStructures
+        .filter(bs => bs.parentId === rootUserId && bs.position === position)
+        .map(bs => bs.userId);
+      
+      console.log(`Direct ${position} children for user ${rootUserId}:`, directChildren);
+      
+      // Then recursively get all of their children (regardless of position)
+      let allTeamMembers = [...directChildren];
+      
+      for (const childId of directChildren) {
+        // For each direct child, get their entire downline
+        const leftDownline = getCompleteTeam(childId, 'left');
+        const rightDownline = getCompleteTeam(childId, 'right');
+        allTeamMembers = [...allTeamMembers, ...leftDownline, ...rightDownline];
+      }
+      
+      return allTeamMembers;
+    };
+    
+    // Get complete left and right teams
+    const leftTeamUserIds = getCompleteTeam(userId, 'left');
+    const rightTeamUserIds = getCompleteTeam(userId, 'right');
+    
+    console.log(`\nLeft team user IDs: [${leftTeamUserIds.join(', ')}]`);
+    console.log(`Right team user IDs: [${rightTeamUserIds.join(', ')}]`);
+    
+    const leftTeamUsers = allUsers.filter(u => leftTeamUserIds.includes(u.id));
+    const rightTeamUsers = allUsers.filter(u => rightTeamUserIds.includes(u.id));
+    
+    console.log(`\nLeft team users: ${leftTeamUsers.map(u => `${u.name} (ID: ${u.id})`).join(', ')}`);
+    console.log(`Right team users: ${rightTeamUsers.map(u => `${u.name} (ID: ${u.id})`).join(', ')}`);
+    
+    // Calculate total business volume for each team
+    let leftTeamBusiness = 0;
+    let rightTeamBusiness = 0;
+    
+    // Calculate left team business
+    console.log('\nCalculating left team business:');
+    for (const leftUser of leftTeamUsers) {
+      const userPackage = await this.getPackageByUserId(leftUser.id);
+      console.log(`\nLeft user ${leftUser.name} (ID: ${leftUser.id}) package:`, userPackage);
+      if (userPackage) {
+        const packageValue = parseFloat(userPackage.monthlyAmount);
+        leftTeamBusiness += packageValue;
+        console.log(`Added ₹${packageValue} to left team business from ${leftUser.name}'s package`);
+      } else {
+        console.log(`No package found for left user ${leftUser.name} (ID: ${leftUser.id})`);
+      }
+    }
+    
+    // Calculate right team business
+    console.log('\nCalculating right team business:');
+    for (const rightUser of rightTeamUsers) {
+      const userPackage = await this.getPackageByUserId(rightUser.id);
+      console.log(`\nRight user ${rightUser.name} (ID: ${rightUser.id}) package:`, userPackage);
+      if (userPackage) {
+        const packageValue = parseFloat(userPackage.monthlyAmount);
+        rightTeamBusiness += packageValue;
+        console.log(`Added ₹${packageValue} to right team business from ${rightUser.name}'s package`);
+      } else {
+        console.log(`No package found for right user ${rightUser.name} (ID: ${rightUser.id})`);
+      }
+    }
+
+    // Get carry forward values
+    const leftCarryForward = user.leftCarryForward || "0";
+    const rightCarryForward = user.rightCarryForward || "0";
+
+    console.log(`\nFinal business volumes - Left: ₹${leftTeamBusiness}, Right: ₹${rightTeamBusiness}`);
+    console.log(`Carry forward - Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}`);
+    
+    return {
+      leftTeamBusiness: leftTeamBusiness.toString(),
+      rightTeamBusiness: rightTeamBusiness.toString(),
+      leftCarryForward: leftCarryForward,
+      rightCarryForward: rightCarryForward
+    };
   }
 
   // Earnings operations
@@ -424,6 +875,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.earnings.values())
       .filter(earning => earning.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getUserEarnings(userId: number): Promise<Earning[]> {
+    return this.getEarningsByUserId(userId);
   }
 
   async getAllEarnings(): Promise<Earning[]> {
@@ -548,7 +1003,211 @@ export class MemStorage implements IStorage {
       .filter(transaction => transaction.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
+
+  // Get all users at a specific level for a given user
+  async getUsersAtLevel(userId: number, level: number): Promise<User[]> {
+    const allUsers = await this.getAllUsers();
+    
+    // Direct referrals of this user
+    const directReferrals = allUsers.filter(u => u.referredBy === userId);
+    
+    if (level === 1) {
+      // Level 1 = referrals of direct referrals
+      const levelOneUsers: User[] = [];
+      for (const directRef of directReferrals) {
+        const refOfRef = allUsers.filter(u => u.referredBy === directRef.id);
+        levelOneUsers.push(...refOfRef);
+      }
+      return levelOneUsers;
+    }
+    
+    // For levels 2+, recursively find users starting from level 1
+    let previousLevelUsers = await this.getUsersAtLevel(userId, 1); // Start with level 1
+    let currentLevel = 2;
+    
+    while (currentLevel <= level) {
+      const currentLevelUsers: User[] = [];
+      for (const prevUser of previousLevelUsers) {
+        const referrals = allUsers.filter(u => u.referredBy === prevUser.id);
+        currentLevelUsers.push(...referrals);
+      }
+      
+      if (currentLevel === level) {
+        return currentLevelUsers;
+      }
+      
+      previousLevelUsers = currentLevelUsers;
+      currentLevel++;
+    }
+    
+    return [];
+  }
+
+  // Calculate level earnings based on actual users and packages
+  async calculateLevelEarnings(userId: number): Promise<any[]> {
+    const user = await this.getUser(userId);
+    if (!user) return [];
+
+    // Level income percentages (updated per requirements)
+    const levelPercentages = [
+      0.15, // Level 1: 15%
+      0.10, // Level 2: 10%
+      0.05, // Level 3: 5%
+      0.03, 0.03, 0.03, 0.03, 0.03, // Levels 4-8: 3% each
+      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, // Levels 9-14: 2% each
+      0.01, 0.01, 0.01, 0.01, 0.01, 0.01  // Levels 15-20: 1% each
+    ];
+
+    const directReferralCount = (await this.getAllUsers()).filter(u => u.referredBy === userId).length;
+    const unlockedLevels = directReferralCount * 2;
+
+    const levels = [];
+    
+    for (let level = 1; level <= 20; level++) {
+      const isUnlocked = level <= unlockedLevels;
+      let members = 0;
+      let totalEarnings = 0;
+
+      if (isUnlocked) {
+        const usersAtLevel = await this.getUsersAtLevel(userId, level);
+        members = usersAtLevel.length;
+
+        // Calculate earnings from this level
+        for (const levelUser of usersAtLevel) {
+          const userPackage = await this.getPackageByUserId(levelUser.id);
+          if (userPackage) {
+            const monthlyAmount = parseFloat(userPackage.monthlyAmount);
+            const directIncome = monthlyAmount * 0.05; // 5% direct income
+            const levelIncome = directIncome * levelPercentages[level - 1];
+            totalEarnings += levelIncome;
+          }
+        }
+      }
+
+      levels.push({
+        level,
+        status: isUnlocked ? 'unlocked' : 'locked',
+        members,
+        earnings: `₹${totalEarnings.toFixed(2)}`
+      });
+    }
+
+    return levels;
+  }
+
+  // Admin operations
+  async getAdminUsers(): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => user.role === 'admin');
+  }
+
+  // KYC operations
+  async updateUserKYC(data: {
+    userId: number;
+    panNumber: string;
+    idProofType: string;
+    idProofNumber: string;
+    panCardImage: string;
+    idProofImage: string;
+    kycStatus: string;
+  }): Promise<User | undefined> {
+    const user = await this.getUser(data.userId);
+    if (!user) return undefined;
+
+    const updatedUser = {
+      ...user,
+      panNumber: data.panNumber,
+      idProofType: data.idProofType,
+      idProofNumber: data.idProofNumber,
+      panCardImage: data.panCardImage,
+      idProofImage: data.idProofImage,
+      kycStatus: data.kycStatus,
+      kycRejectionReason: null
+    };
+
+    this.users.set(data.userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserKYCStatus(data: {
+    userId: number;
+    kycStatus: string;
+    kycRejectionReason: string | null;
+  }): Promise<User | undefined> {
+    const user = await this.getUser(data.userId);
+    if (!user) return undefined;
+
+    const updatedUser = {
+      ...user,
+      kycStatus: data.kycStatus,
+      kycRejectionReason: data.kycRejectionReason
+    };
+
+    this.users.set(data.userId, updatedUser);
+    return updatedUser;
+  }
+
+  async getKYCRequests(status?: string): Promise<any[]> {
+    const allUsers = Array.from(this.users.values());
+    
+    // Filter users who have submitted KYC (have panNumber and panCardImage)
+    let kycUsers = allUsers.filter(user => 
+      user.panNumber && user.panCardImage
+    );
+    
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      kycUsers = kycUsers.filter(user => user.kycStatus === status);
+    }
+    
+    // Map to the response format
+    return kycUsers.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      panNumber: user.panNumber,
+      idProofType: user.idProofType,
+      idProofNumber: user.idProofNumber,
+      panCardImage: user.panCardImage,
+      idProofImage: user.idProofImage,
+      kycStatus: user.kycStatus,
+      kycRejectionReason: user.kycRejectionReason,
+      createdAt: user.createdAt
+    }));
+  }
+
+  // Notifications
+  private notificationIdCounter = 1;
+  private notifications = new Map<number, any>();
+
+  async createNotification(data: {
+    userId: number;
+    type: string;
+    message: string;
+  }): Promise<any> {
+    const id = this.notificationIdCounter++;
+    
+    const notification = {
+      id,
+      userId: data.userId,
+      type: data.type,
+      message: data.message,
+      isRead: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  // Demo earnings generation (placeholder implementation)
+  async generateDemoEarnings(userId: number): Promise<void> {
+    // This is a placeholder method to prevent errors
+    // In a real implementation, this would generate demo earnings for testing
+    console.log(`Demo earnings generation called for user ${userId}`);
+  }
 }
 
-// Export the storage instance
-export const storage = new MemStorage();
+// Export the PostgreSQL storage implementation
+export { storage } from './pgStorage';

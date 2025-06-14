@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (data: LoginData) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  refreshUser: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -45,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     },
     retry: false,
-    staleTime: 300000, // 5 minutes
+    staleTime: 30000, // 30 seconds - shorter for more frequent updates
   });
 
   // Login mutation
@@ -129,6 +131,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await logoutMutation.mutateAsync();
   };
 
+  const refreshUser = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+  };
+
   const isAuthenticated = !!user;
   const isAdmin = isAuthenticated && user?.role === 'admin';
 
@@ -142,6 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

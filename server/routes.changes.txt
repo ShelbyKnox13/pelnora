@@ -1,0 +1,126 @@
+Here are the changes needed in the routes.ts file:
+
+1. In the create-test-user endpoint (around line 110), we've already fixed:
+```typescript
+// Delete existing package if any
+const existingPackage = await storage.getPackageByUserId(existingUser.id);
+if (existingPackage) {
+  await db.execute(sql`DELETE FROM packages WHERE id = ${existingPackage.id}`);
+}
+```
+
+2. In the create-test-user endpoint (around line 114), change:
+```typescript
+const packageData: InsertPackage = {
+  userId: existingUser.id,
+  packageType: 'basic',
+  monthlyAmount: '10000',
+  totalMonths: 12,
+  paidMonths: 0,
+  isCompleted: false,
+  bonusEarned: false,
+  startDate: new Date(),
+  nextPaymentDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  directReferrals: 0,
+  unlockedLevels: 0,
+  totalEarnings: "0",
+  autoPoolEligible: false,
+  autoPoolLevel: 0,
+  autoPoolWallet: "0",
+  autoPoolRewardClaimed: false,
+  autoPoolAssuredRewardClaimed: false,
+  emiWaiverEligible: false,
+  timelyPaymentsCount: 0,
+  levelEarnings: "0",
+  binaryEarnings: "0",
+  directEarnings: "0"
+};
+```
+to:
+```typescript
+const packageData = {
+  userId: existingUser.id,
+  packageType: 'basic',
+  monthlyAmount: '10000',
+  totalMonths: 12
+};
+```
+
+3. In the create-test-user endpoint (around line 165), change:
+```typescript
+const packageData: InsertPackage = {
+  userId: user.id,
+  packageType: 'basic',
+  monthlyAmount: '10000',
+  totalMonths: 12,
+  directReferrals: 0,
+  unlockedLevels: 0,
+  totalEarnings: "0",
+  autoPoolEligible: false,
+  autoPoolLevel: 0,
+  autoPoolWallet: "0",
+  autoPoolRewardClaimed: false,
+  autoPoolAssuredRewardClaimed: false,
+  emiWaiverEligible: false,
+  timelyPaymentsCount: 0,
+  levelEarnings: "0",
+  binaryEarnings: "0",
+  directEarnings: "0"
+};
+```
+to:
+```typescript
+const packageData = {
+  userId: user.id,
+  packageType: 'basic',
+  monthlyAmount: '10000',
+  totalMonths: 12
+};
+```
+
+4. In the register endpoint (around line 349), change:
+```typescript
+const packageData: InsertPackage = {
+  userId: newUser.id,
+  packageType: selectedPackage.id as typeof validPackageTypes[number],
+  monthlyAmount: selectedPackage.monthlyAmount.toString(),
+  totalMonths: 12,
+  directReferrals: 0,
+  unlockedLevels: 0,
+  totalEarnings: '0',
+  autoPoolEligible: false,
+  autoPoolLevel: 0,
+  autoPoolWallet: '0',
+  autoPoolRewardClaimed: false,
+  autoPoolAssuredRewardClaimed: false,
+  emiWaiverEligible: false,
+  timelyPaymentsCount: 0,
+  levelEarnings: '0',
+  binaryEarnings: '0',
+  directEarnings: '0'
+};
+```
+to:
+```typescript
+const packageData = {
+  userId: newUser.id,
+  packageType: selectedPackage.id as typeof validPackageTypes[number],
+  monthlyAmount: selectedPackage.monthlyAmount.toString(),
+  totalMonths: 12
+};
+```
+
+5. In the reset-user-stats endpoint (around line 245), we've already fixed:
+```typescript
+// Delete all earnings
+await db.execute(sql`DELETE FROM earnings WHERE user_id = ${userId}`);
+
+// Delete all binary structure entries
+await db.execute(sql`DELETE FROM binary_structure WHERE user_id = ${userId}`);
+
+// Delete all auto pool entries
+await db.execute(sql`DELETE FROM auto_pool WHERE user_id = ${userId}`);
+
+// Delete all level statistics
+await db.execute(sql`DELETE FROM level_statistics WHERE user_id = ${userId}`);
+```
