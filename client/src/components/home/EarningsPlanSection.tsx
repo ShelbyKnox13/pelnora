@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Check, CheckCircle2 } from "lucide-react";
 import { EARNINGS_DESCRIPTIONS, EARNING_TYPE_COLORS } from "@/lib/constants";
 

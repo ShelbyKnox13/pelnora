@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BinaryTree } from '@/components/team/BinaryTree';
+import { BinaryTree } from '../../components/team/BinaryTree';
 
 export default function TeamPage() {
   const [binaryData, setBinaryData] = useState(null);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+// Update the import path below if your hooks folder is at 'src/hooks/use-toast'
+import { useToast } from '../hooks/use-toast';
 
 export default function KYCSizeTestPage() {
   const { toast } = useToast();

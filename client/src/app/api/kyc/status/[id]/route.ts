@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+// Update the import path if "@/lib/db" does not exist, for example:
+import { db } from "../../../lib/db";
+// Or use the correct relative path based on your project structure
 import { verifyAdminAuth } from "@/lib/auth";
 
 /**

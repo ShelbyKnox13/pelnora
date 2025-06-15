@@ -1,0 +1,22 @@
+{
+  "name": "pelnora-app",
+  "version": "1.0.0",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "build": "echo 'Build completed'"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.36.4",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "mysql2": "^3.11.4",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18.20.7"
+  }
+}

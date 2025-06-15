@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pelnora - Welcome</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #4a154b;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+        .content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .status {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4a154b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #611f69;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Pelnora</h1>
+            <p>Multi-Level Marketing Platform</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <h2>Welcome to Pelnora</h2>
+            <p>Your MLM platform is now deployed and ready to use.</p>
+            
+            <div class="status">
+                <h3>Server Status</h3>
+                <p>The server is running. You can check the health status at <a href="/api/health">/api/health</a>.</p>
+            </div>
+            
+            <h3>Getting Started</h3>
+            <p>To start using the platform:</p>
+            <ol>
+                <li>Login with the admin account</li>
+                <li>Set up your packages and commission structure</li>
+                <li>Invite users to join your network</li>
+            </ol>
+            
+            <a href="/login" class="btn">Login to Dashboard</a>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Pelnora. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

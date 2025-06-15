@@ -1,0 +1,28 @@
+# Commands to fix the syntax error in your Node.js application on cPanel
+
+# First, stop your application
+pm2 stop pelnora-app
+
+# Make a backup of your server file
+cp server/index.js server/index.js.backup
+
+# Now, edit the file to fix the syntax error
+# You can use nano, vim, or any text editor available on your server
+# For example:
+nano server/index.js
+
+# Find line 207 (or search for "admin@pelnora.com")
+# The line should look like:
+# req.session.isAdmin = user.email === 'admin@pelnora.com
+# Add the missing closing quote and semicolon:
+# req.session.isAdmin = user.email === 'admin@pelnora.com';
+
+# Save the file and exit the editor
+# In nano: Press Ctrl+O to save, then Enter, then Ctrl+X to exit
+
+# Restart your application
+pm2 start app.js --name pelnora-app
+
+# Check if the application is running correctly
+pm2 list
+pm2 logs pelnora-app --lines 10

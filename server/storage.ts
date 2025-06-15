@@ -50,6 +50,7 @@ export interface IStorage {
   getPackageByUserId(userId: number): Promise<Package | undefined>;
   getUserPackage(userId: number): Promise<Package | undefined>;
   updatePackage(id: number, data: Partial<Package>): Promise<Package | undefined>;
+  deletePackage(id: number): Promise<boolean>;
   getAllPackages(): Promise<Package[]>;
   
   // EMI operations
@@ -91,6 +92,19 @@ export interface IStorage {
   
   // Demo earnings generation
   generateDemoEarnings(userId: number): Promise<void>;
+  
+  // User management operations
+  deactivateUser(userId: number): Promise<User | undefined>;
+  activateUser(userId: number): Promise<User | undefined>;
+  deleteUserPermanently(userId: number, deletedByAdminId: number): Promise<{
+    success: boolean;
+    message: string;
+    orphanedUsers?: User[];
+    reassignedUsers?: { userId: number; newParentId: number; position: string }[];
+  }>;
+  
+  // Admin recalculation operations
+  recalculateAllUserStats(): Promise<{ success: boolean; message: string; updatedUsers: number }>;
 }
 
 // Memory storage implementation
@@ -810,9 +824,9 @@ export class MemStorage implements IStorage {
       const userPackage = await this.getPackageByUserId(leftUser.id);
       console.log(`\nLeft user ${leftUser.name} (ID: ${leftUser.id}) package:`, userPackage);
       if (userPackage) {
-        const packageValue = parseFloat(userPackage.monthlyAmount);
+        const packageValue = parseFloat(userPackage.monthlyAmount) * userPackage.totalMonths;
         leftTeamBusiness += packageValue;
-        console.log(`Added ₹${packageValue} to left team business from ${leftUser.name}'s package`);
+        console.log(`Added ₹${packageValue} to left team business (${userPackage.monthlyAmount} x ${userPackage.totalMonths})`);
       } else {
         console.log(`No package found for left user ${leftUser.name} (ID: ${leftUser.id})`);
       }
@@ -824,26 +838,22 @@ export class MemStorage implements IStorage {
       const userPackage = await this.getPackageByUserId(rightUser.id);
       console.log(`\nRight user ${rightUser.name} (ID: ${rightUser.id}) package:`, userPackage);
       if (userPackage) {
-        const packageValue = parseFloat(userPackage.monthlyAmount);
+        const packageValue = parseFloat(userPackage.monthlyAmount) * userPackage.totalMonths;
         rightTeamBusiness += packageValue;
-        console.log(`Added ₹${packageValue} to right team business from ${rightUser.name}'s package`);
+        console.log(`Added ₹${packageValue} to right team business (${userPackage.monthlyAmount} x ${userPackage.totalMonths})`);
       } else {
         console.log(`No package found for right user ${rightUser.name} (ID: ${rightUser.id})`);
       }
     }
-
-    // Get carry forward values
-    const leftCarryForward = user.leftCarryForward || "0";
-    const rightCarryForward = user.rightCarryForward || "0";
-
+    
     console.log(`\nFinal business volumes - Left: ₹${leftTeamBusiness}, Right: ₹${rightTeamBusiness}`);
-    console.log(`Carry forward - Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}`);
+    console.log(`Carry forward - Left: ₹${user.leftCarryForward}, Right: ₹${user.rightCarryForward}`);
     
     return {
       leftTeamBusiness: leftTeamBusiness.toString(),
       rightTeamBusiness: rightTeamBusiness.toString(),
-      leftCarryForward: leftCarryForward,
-      rightCarryForward: rightCarryForward
+      leftCarryForward: user.leftCarryForward,
+      rightCarryForward: user.rightCarryForward
     };
   }
 
@@ -855,6 +865,8 @@ export class MemStorage implements IStorage {
       ...earningData,
       id,
       createdAt: new Date(),
+      description: earningData.description ?? null,
+      relatedUserId: earningData.relatedUserId ?? null,
     };
     
     this.earnings.set(id, newEarning);
@@ -1206,6 +1218,255 @@ export class MemStorage implements IStorage {
     // This is a placeholder method to prevent errors
     // In a real implementation, this would generate demo earnings for testing
     console.log(`Demo earnings generation called for user ${userId}`);
+  }
+
+  // User management operations
+  async deactivateUser(userId: number): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, isActive: false };
+    this.users.set(userId, updatedUser);
+    
+    console.log(`User ${user.name} (ID: ${userId}) has been deactivated`);
+    return updatedUser;
+  }
+
+  async activateUser(userId: number): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, isActive: true };
+    this.users.set(userId, updatedUser);
+    
+    console.log(`User ${user.name} (ID: ${userId}) has been activated`);
+    return updatedUser;
+  }
+
+  async deleteUserPermanently(userId: number, deletedByAdminId: number): Promise<{
+    success: boolean;
+    message: string;
+    orphanedUsers?: User[];
+    reassignedUsers?: { userId: number; newParentId: number; position: string }[];
+  }> {
+    const userToDelete = await this.getUser(userId);
+    if (!userToDelete) {
+      return { success: false, message: "User not found" };
+    }
+
+    // Prevent deletion of admin users
+    if (userToDelete.role === 'admin') {
+      return { success: false, message: "Cannot delete admin users" };
+    }
+
+    console.log(`Starting permanent deletion of user: ${userToDelete.name} (ID: ${userId})`);
+
+    // Log the deletion activity
+    const deletionLog = {
+      deletedUserId: userId,
+      deletedUserName: userToDelete.name,
+      deletedByAdminId,
+      timestamp: new Date(),
+      action: 'USER_DELETED_PERMANENTLY'
+    };
+    console.log('Deletion Log:', deletionLog);
+
+    // Get user's binary structure
+    const userBinaryStructure = await this.getBinaryStructureByUserId(userId);
+    
+    // Find all users in the deleted user's downline (left and right)
+    const allBinaryStructures = Array.from(this.binaryStructures.values());
+    const leftDownline = this.getCompleteDownline(userId, 'left', allBinaryStructures);
+    const rightDownline = this.getCompleteDownline(userId, 'right', allBinaryStructures);
+    
+    const reassignedUsers: { userId: number; newParentId: number; position: string }[] = [];
+    const orphanedUsers: User[] = [];
+
+    // Handle reassignment logic
+    if (userBinaryStructure && userBinaryStructure.parentId) {
+      // User has an upline - reassign downline to the upline
+      const uplineId = userBinaryStructure.parentId;
+      const deletedUserPosition = userBinaryStructure.position;
+
+      console.log(`Reassigning downline to upline ${uplineId} in position ${deletedUserPosition}`);
+
+      // Reassign left downline
+      if (leftDownline.length > 0) {
+        const primaryLeftUser = leftDownline[0];
+        await this.updateBinaryStructure(primaryLeftUser, uplineId, deletedUserPosition);
+        reassignedUsers.push({ userId: primaryLeftUser, newParentId: uplineId, position: deletedUserPosition });
+        
+        // Reassign remaining left users under the primary left user
+        for (let i = 1; i < leftDownline.length; i++) {
+          await this.updateBinaryStructure(leftDownline[i], primaryLeftUser, 'left');
+          reassignedUsers.push({ userId: leftDownline[i], newParentId: primaryLeftUser, position: 'left' });
+        }
+      }
+
+      // Reassign right downline
+      if (rightDownline.length > 0) {
+        const primaryRightUser = rightDownline[0];
+        
+        // If left downline was reassigned to the deleted user's position, put right downline on the opposite side
+        const rightPosition = leftDownline.length > 0 ? (deletedUserPosition === 'left' ? 'right' : 'left') : deletedUserPosition;
+        
+        await this.updateBinaryStructure(primaryRightUser, uplineId, rightPosition);
+        reassignedUsers.push({ userId: primaryRightUser, newParentId: uplineId, position: rightPosition });
+        
+        // Reassign remaining right users under the primary right user
+        for (let i = 1; i < rightDownline.length; i++) {
+          await this.updateBinaryStructure(rightDownline[i], primaryRightUser, 'right');
+          reassignedUsers.push({ userId: rightDownline[i], newParentId: primaryRightUser, position: 'right' });
+        }
+      }
+
+      // Update upline's team counts
+      await this.recalculateTeamCounts(uplineId);
+    } else {
+      // User has no upline - downline becomes orphaned
+      console.log(`User ${userId} has no upline, downline will be orphaned`);
+      
+      for (const downlineUserId of [...leftDownline, ...rightDownline]) {
+        const downlineUser = await this.getUser(downlineUserId);
+        if (downlineUser) {
+          orphanedUsers.push(downlineUser);
+          // Remove binary structure for orphaned users
+          this.binaryStructures.delete(downlineUserId);
+        }
+      }
+    }
+
+    // Mark all earnings related to deleted user as invalidated
+    const userEarnings = await this.getEarningsByUserId(userId);
+    for (const earning of userEarnings) {
+      const invalidatedEarning = {
+        ...earning,
+        description: `[INVALIDATED - User Deleted] ${earning.description}`,
+        amount: "0" // Set to 0 but keep record for transparency
+      };
+      this.earnings.set(earning.id, invalidatedEarning);
+    }
+
+    // Mark earnings where this user was the related user (earnings generated from this user's activities)
+    const allEarnings = Array.from(this.earnings.values());
+    for (const earning of allEarnings) {
+      if (earning.relatedUserId === userId) {
+        const invalidatedEarning = {
+          ...earning,
+          description: `[INVALIDATED - Related User Deleted] ${earning.description}`,
+          amount: "0"
+        };
+        this.earnings.set(earning.id, invalidatedEarning);
+      }
+    }
+
+    // Remove user's binary structure
+    if (userBinaryStructure) {
+      this.binaryStructures.delete(userBinaryStructure.id);
+    }
+
+    // Remove user's packages
+    const userPackages = await this.getAllPackages();
+    for (const pkg of userPackages) {
+      if (pkg.userId === userId) {
+        this.packages.delete(pkg.id);
+      }
+    }
+
+    // Remove user's EMI payments
+    const userEMIPayments = await this.getEMIPaymentsByUserId(userId);
+    for (const emi of userEMIPayments) {
+      this.emiPayments.delete(emi.id);
+    }
+
+    // Remove user's withdrawals
+    const userWithdrawals = await this.getWithdrawalsByUserId(userId);
+    for (const withdrawal of userWithdrawals) {
+      this.withdrawals.delete(withdrawal.id);
+    }
+
+    // Remove user's transactions
+    const userTransactions = await this.getTransactionsByUserId(userId);
+    for (const transaction of userTransactions) {
+      this.transactions.delete(transaction.id);
+    }
+
+    // Finally, delete the user
+    this.users.delete(userId);
+
+    // Recalculate binary and level earnings for affected uplines
+    if (userBinaryStructure && userBinaryStructure.parentId) {
+      await this.recalculateBinaryEarnings(userBinaryStructure.parentId);
+    }
+
+    console.log(`User ${userToDelete.name} (ID: ${userId}) has been permanently deleted`);
+    console.log(`Reassigned ${reassignedUsers.length} users, orphaned ${orphanedUsers.length} users`);
+
+    return {
+      success: true,
+      message: `User ${userToDelete.name} has been permanently deleted`,
+      orphanedUsers,
+      reassignedUsers
+    };
+  }
+
+  // Helper method to get complete downline for a user
+  private getCompleteDownline(userId: number, position: string, allBinaryStructures: BinaryStructure[]): number[] {
+    const directChildren = allBinaryStructures
+      .filter(bs => bs.parentId === userId && bs.position === position)
+      .map(bs => bs.userId);
+
+    let allDownline = [...directChildren];
+
+    for (const childId of directChildren) {
+      const leftDownline = this.getCompleteDownline(childId, 'left', allBinaryStructures);
+      const rightDownline = this.getCompleteDownline(childId, 'right', allBinaryStructures);
+      allDownline = [...allDownline, ...leftDownline, ...rightDownline];
+    }
+
+    return Array.from(new Set(allDownline)); // Remove duplicates
+  }
+
+  // Helper method to update binary structure
+  private async updateBinaryStructure(userId: number, newParentId: number, position: string): Promise<void> {
+    const existingStructure = await this.getBinaryStructureByUserId(userId);
+    if (existingStructure) {
+      const updatedStructure = {
+        ...existingStructure,
+        parentId: newParentId,
+        position: position
+      };
+      this.binaryStructures.set(existingStructure.id, updatedStructure);
+    }
+  }
+
+  // Helper method to recalculate team counts for a user
+  private async recalculateTeamCounts(userId: number): Promise<void> {
+    const allBinaryStructures = Array.from(this.binaryStructures.values());
+    const leftTeam = this.getCompleteDownline(userId, 'left', allBinaryStructures);
+    const rightTeam = this.getCompleteDownline(userId, 'right', allBinaryStructures);
+
+    await this.updateUser(userId, {
+      leftTeamCount: leftTeam.length,
+      rightTeamCount: rightTeam.length
+    });
+  }
+
+  // Helper method to recalculate binary earnings for affected users
+  private async recalculateBinaryEarnings(userId: number): Promise<void> {
+    // This is a placeholder - in a real implementation, you would recalculate
+    // all binary earnings for the user and their upline
+    console.log(`Recalculating binary earnings for user ${userId} and upline`);
+  }
+
+  // Admin method to recalculate all user stats
+  async recalculateAllUserStats(): Promise<{ success: boolean; message: string; updatedUsers: number }> {
+    console.log('Recalculating all user stats in memory storage - placeholder');
+    return {
+      success: true,
+      message: 'Memory storage recalculation completed (placeholder)',
+      updatedUsers: 0
+    };
   }
 }
 

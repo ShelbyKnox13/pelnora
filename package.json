@@ -6,17 +6,11 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "cross-env NODE_ENV=development tsx server/index.ts",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "deploy": "bash deploy.sh",
-    "rollback": "bash rollback.sh",
-    "health": "bash health-check.sh",
-    "logs": "pm2 logs pelnora-app",
-    "status": "pm2 status",
-    "restart": "pm2 restart pelnora-app",
-    "stop": "pm2 stop pelnora-app",
-    "start:prod": "pm2 start ecosystem.config.js --env production"
+    "migrate": "tsx migrate.ts",
+    "local:setup": "cross-env NODE_ENV=development tsx migrate.ts && cross-env NODE_ENV=development tsx server/index.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -60,7 +54,7 @@
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.1",
+    "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^4.21.2",

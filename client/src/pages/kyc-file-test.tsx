@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../hooks/use-toast';
 
 export default function KYCFileTestPage() {
   const { toast } = useToast();
@@ -66,7 +66,7 @@ export default function KYCFileTestPage() {
       
       // Log what we're sending
       console.log("Sending file:", file.name, file.type, file.size);
-      console.log("Form data keys:", [...formData.keys()]);
+      console.log("Form data keys:", Array.from(formData.keys()));
       
       // Try the main KYC submission endpoint
       const response = await fetch('/api/kyc/submit', {
