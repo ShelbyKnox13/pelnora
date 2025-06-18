@@ -360,8 +360,8 @@ export const AuthModals = ({
     <>
       {/* Login Modal */}
       {showLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onCloseLogin}>
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onCloseLogin}>
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl mx-auto my-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-playfair text-2xl font-bold text-purple-dark">Login to Your Account</h2>
               <button className="text-gray-400 hover:text-gray-600" onClick={onCloseLogin}>
@@ -499,8 +499,8 @@ export const AuthModals = ({
 
       {/* Signup Modal */}
       {showSignup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onCloseSignup}>
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onCloseSignup}>
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl mx-auto my-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-playfair text-2xl font-bold text-purple-dark">Create Your Account</h2>
               <button className="text-gray-400 hover:text-gray-600" onClick={onCloseSignup}>
