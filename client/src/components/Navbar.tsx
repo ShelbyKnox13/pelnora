@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, Menu, X } from "lucide-react";
+import { Bell, Menu, X, Crown } from "lucide-react";
 
 export const Navbar = () => {
   const [location] = useLocation();
@@ -37,13 +37,18 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-sm">
+    <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-amber-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link href="/" className="flex-shrink-0 flex items-center">
-              <span className="font-playfair font-bold text-xl text-gold-dark">PELNORA</span>
-              <span className="font-playfair ml-1 text-xl text-purple-dark">JEWELLERS</span>
+              <div className="bg-gradient-to-r from-amber-600 to-rose-600 p-2 rounded-full mr-3">
+                <Crown className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="font-bold text-2xl bg-gradient-to-r from-amber-600 to-rose-600 bg-clip-text text-transparent">PELNORA</span>
+                <span className="block text-sm text-amber-700 font-medium -mt-1">JEWELLERS</span>
+              </div>
             </Link>
           </div>
 
@@ -84,13 +89,13 @@ export const Navbar = () => {
                 <Button
                   onClick={() => setShowLoginModal(true)}
                   variant="outline"
-                  className="border-2 border-gold-dark text-gray-900 hover:bg-gold-dark hover:text-gray-900 font-bold px-6"
+                  className="border-2 border-amber-600 text-amber-700 hover:bg-amber-600 hover:text-white font-bold px-6 transition-colors duration-300"
                 >
                   Login
                 </Button>
                 <Button
                   onClick={() => setShowSignupModal(true)}
-                  className="border-2 border-gold-dark bg-gold-dark hover:bg-gold text-gray-900 font-bold px-6"
+                  className="bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white font-bold px-6 transition-all duration-300 shadow-lg"
                 >
                   Sign Up
                 </Button>
@@ -102,7 +107,7 @@ export const Navbar = () => {
           <div className="flex items-center sm:hidden">
             <button
               onClick={toggleMobileMenu}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-gold-dark"
+              className="inline-flex items-center justify-center p-2 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-600"
             >
               {mobileMenuOpen ? (
                 <X className="block h-6 w-6" />
@@ -163,7 +168,7 @@ export const Navbar = () => {
                     setMobileMenuOpen(false);
                   }}
                   variant="outline"
-                  className="w-full justify-center border-2 border-gold-dark text-gray-900 hover:bg-gold-dark hover:text-gray-900 font-bold"
+                  className="w-full justify-center border-2 border-amber-600 text-amber-700 hover:bg-amber-600 hover:text-white font-bold transition-colors duration-300"
                 >
                   Login
                 </Button>
@@ -172,7 +177,7 @@ export const Navbar = () => {
                     setShowSignupModal(true);
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full justify-center border-2 border-gold-dark bg-gold-dark hover:bg-gold text-gray-900 font-bold"
+                  className="w-full justify-center bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white font-bold transition-all duration-300 shadow-lg"
                 >
                   Sign Up
                 </Button>
