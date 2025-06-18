@@ -545,10 +545,14 @@ export class PostgresStorage implements IStorage {
     const levelPercentages = [
       0.15, // Level 1: 15%
       0.10, // Level 2: 10%
-      0.05, // Level 3: 5%
-      0.03, 0.03, 0.03, 0.03, 0.03, // Levels 4-8: 3% each
-      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, // Levels 9-14: 2% each
-      0.01, 0.01, 0.01, 0.01, 0.01, 0.01  // Levels 15-20: 1% each
+      0.08, // Level 3: 8%
+      0.06, // Level 4: 6%
+      0.05, // Level 5: 5%
+      0.04, // Level 6: 4%
+      0.03, // Level 7: 3%
+      0.02, // Level 8: 2%
+      0.01, // Level 9: 1%
+      0.01  // Level 10: 1%
     ];
 
     const allUsers = await this.getAllUsers();
@@ -577,7 +581,7 @@ export class PostgresStorage implements IStorage {
     let currentReferrerId = directReferrer.referredBy;
     let currentLevel = 1; // Start at level 1 for the direct referrer's referrer
     
-    while (currentReferrerId && currentLevel <= 20) {
+    while (currentReferrerId && currentLevel <= 10) {
       const uplineUser = await this.getUser(currentReferrerId);
       if (!uplineUser) break;
       
@@ -745,7 +749,7 @@ export class PostgresStorage implements IStorage {
           userId: userId,
           amount: (-entryFee).toString(),
           earningType: 'autopool',
-          description: `Auto pool entry fee deduction`,
+          description: `Auto pool entry fee (₹${entryFee}) paid by Pelnora through income deduction`,
           relatedUserId: null,
         });
         
