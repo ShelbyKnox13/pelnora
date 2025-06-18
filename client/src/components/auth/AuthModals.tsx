@@ -114,11 +114,11 @@ export const AuthModals = ({
           // Here you would make an API call to verify the password
           // For demo purposes, we'll simulate an API call
           await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-          
+
           // This is where you would check the password against the stored password
           // For demo purposes, we'll use a simple check
           const isCorrect = password === "test123"; // Replace with actual password check
-          
+
           if (isCorrect) {
             setIsPasswordVerified(true);
             setPasswordError("");
@@ -196,15 +196,15 @@ export const AuthModals = ({
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (emailRegex.test(signupEmail)) {
           setIsEmailVerified(true);
-          
+
           // Check email availability after format validation
           setIsCheckingEmailAvailability(true);
           setEmailError("");
-          
+
           try {
             const isAvailable = await checkEmailAvailability(signupEmail);
             setIsEmailAvailable(isAvailable);
-            
+
             if (!isAvailable) {
               setEmailError("This email is already registered. Please use a different email or login.");
             } else {
@@ -281,12 +281,12 @@ export const AuthModals = ({
         },
         body: JSON.stringify({ email }),
       });
-      
+
       if (!response.ok) {
         console.error('API response not ok:', response.status, response.statusText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('Email check response:', data); // Debug log
       return !data.exists; // true if email is available (doesn't exist)
@@ -351,7 +351,7 @@ export const AuthModals = ({
       // Fallback: clear referral ID and let backend handle it
       signupForm.setValue("referralId", "");
     }
-    
+
     setShowNoReferralDialog(false);
     setSignupStep('placement');
   };
@@ -360,7 +360,7 @@ export const AuthModals = ({
     <>
       {/* Login Modal */}
       {showLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onCloseLogin}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4" onClick={onCloseLogin}>
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl mx-auto my-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-playfair text-2xl font-bold text-purple-dark">Login to Your Account</h2>
@@ -368,7 +368,7 @@ export const AuthModals = ({
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <form className="space-y-4" onSubmit={loginForm.handleSubmit(handleLogin)}>
               {loginStep === 'email' ? (
                 <div>
@@ -462,7 +462,7 @@ export const AuthModals = ({
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Checkbox
@@ -475,7 +475,7 @@ export const AuthModals = ({
                     </div>
                     <a href="#" className="text-sm font-medium text-gold-dark hover:text-gold">Forgot password?</a>
                   </div>
-                  
+
                   <Button
                     type="submit"
                     className="w-full bg-gold-dark hover:bg-gold text-gray-900 font-bold py-3 shadow-lg text-base tracking-wide border-2 border-gray-800"
@@ -485,7 +485,7 @@ export const AuthModals = ({
                   </Button>
                 </>
               )}
-              
+
               <p className="text-center text-sm text-gray-600">
                 Don't have an account?{" "}
                 <a href="#" className="font-medium text-gold-dark hover:text-gold" onClick={onSwitchToSignup}>
@@ -499,7 +499,7 @@ export const AuthModals = ({
 
       {/* Signup Modal */}
       {showSignup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onCloseSignup}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4" onClick={onCloseSignup}>
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl mx-auto my-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-playfair text-2xl font-bold text-purple-dark">Create Your Account</h2>
@@ -507,7 +507,7 @@ export const AuthModals = ({
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <form className="space-y-4" onSubmit={signupForm.handleSubmit(handleSignup)}>
               {signupStep === 'email' ? (
                 <div>
@@ -609,7 +609,7 @@ export const AuthModals = ({
                       <p className="text-red-500 text-xs mt-1">{signupForm.formState.errors.name.message}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="signup-phone">Phone Number</Label>
                     <Input
@@ -623,7 +623,7 @@ export const AuthModals = ({
                       <p className="text-red-500 text-xs mt-1">{signupForm.formState.errors.phone.message}</p>
                     )}
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
@@ -744,7 +744,7 @@ export const AuthModals = ({
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Choose Your Placement Position</h3>
                     <p className="text-sm text-gray-600">Select your preferred position in your sponsor's binary tree</p>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                       <div
                         className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
@@ -762,7 +762,7 @@ export const AuthModals = ({
                         </div>
                         <p className="text-sm text-gray-600 mt-1">Place under sponsor's left leg</p>
                       </div>
-                      
+
                       <div
                         className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                           signupForm.watch("placement") === "right"
@@ -812,7 +812,7 @@ export const AuthModals = ({
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Choose Your Package</h3>
                     <p className="text-sm text-gray-600">Select the investment package that best suits your goals</p>
-                    
+
                     <div className="grid gap-4">
                       {PACKAGES.map((pkg) => (
                         <div
@@ -847,7 +847,7 @@ export const AuthModals = ({
                     >
                       {isLoading ? "Creating Account..." : isCheckingEmail ? "Verifying Email..." : "Create Account"}
                     </Button>
-                    
+
                     {emailError && (
                       <div className="mt-2 flex items-center text-red-600">
                         <XCircle className="h-4 w-4 mr-1" />
@@ -857,7 +857,7 @@ export const AuthModals = ({
                   </div>
                 </>
               )}
-              
+
               <p className="text-center text-sm text-gray-600">
                 Already have an account?{" "}
                 <a href="#" className="font-medium text-gold-dark hover:text-gold" onClick={onSwitchToLogin}>
