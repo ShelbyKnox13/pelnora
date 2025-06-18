@@ -58,6 +58,8 @@ const Home = () => {
           text-align: center;
           color: white;
           padding: 0 2rem;
+          position: relative;
+          z-index: 1;
         }
 
         .hero-content h1 {
