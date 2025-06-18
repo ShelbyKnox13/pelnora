@@ -174,7 +174,6 @@ const Home = () => {
         <section className="hero">
           <div className="hero-content">
             <h1>Where Craftsmanship<br />Meets Legacy</h1>
-            <p>Experience the artistry of Pelnora Jewellers, where each piece tells a story of elegance and tradition</p>
           </div>
         </section>
 

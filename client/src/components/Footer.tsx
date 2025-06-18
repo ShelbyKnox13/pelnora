@@ -86,11 +86,6 @@ export const Footer = () => {
                 <a href="tel:+919876543210" className="text-gray-400 hover:text-green-300 transition-colors duration-300">+91 98765 43210</a>
               </li>
             </ul>
-            <div className="mt-4 p-3 bg-gradient-to-r from-amber-600/20 to-rose-600/20 rounded-lg border border-amber-600/30">
-              <p className="text-amber-300 text-sm font-medium">Showroom Hours</p>
-              <p className="text-gray-400 text-xs">Mon - Sat: 10:00 AM - 8:00 PM</p>
-              <p className="text-gray-400 text-xs">Sunday: 11:00 AM - 6:00 PM</p>
-            </div>
           </div>
         </div>
         
