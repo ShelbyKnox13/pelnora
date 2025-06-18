@@ -42,13 +42,9 @@ export const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link href="/" className="flex-shrink-0 flex items-center">
-              <div className="bg-gradient-to-r from-amber-600 to-rose-600 p-2 rounded-full mr-3">
-                <Crown className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <span className="font-bold text-2xl bg-gradient-to-r from-amber-600 to-rose-600 bg-clip-text text-transparent">PELNORA</span>
-                <span className="block text-sm text-amber-700 font-medium -mt-1">JEWELLERS</span>
-              </div>
+              <span className="text-2xl font-bold text-gray-900 tracking-wider" style={{ fontFamily: "'Playfair Display', serif", letterSpacing: '2px' }}>
+                PELNORA JEWELLERS
+              </span>
             </Link>
           </div>
 
