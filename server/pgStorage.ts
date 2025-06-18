@@ -502,10 +502,9 @@ export class PostgresStorage implements IStorage {
     }
 
     const monthlyAmount = parseFloat(packagePurchased.monthlyAmount);
-    const totalPackageValue = monthlyAmount * packagePurchased.totalMonths;
-    console.log(`📊 Package purchased: ${packagePurchased.packageType} - Monthly: ₹${monthlyAmount}, Total: ₹${totalPackageValue}`);
+    console.log(`📊 Package purchased: ${packagePurchased.packageType} - Monthly: ₹${monthlyAmount}`);
 
-    // 1. DIRECT INCOME: 5% of monthly amount (one-time payment at signup)
+    // 1. DIRECT INCOME: 5% of monthly amount (one-time payment at signup only, not EMIs)
     if (buyer.referredBy) {
       const referrer = await this.getUser(buyer.referredBy);
       if (referrer) {
@@ -524,20 +523,23 @@ export class PostgresStorage implements IStorage {
         await this.updateUserEarnings(referrer.id, directIncome);
         console.log(`✅ Direct income: ₹${directIncome} paid to ${referrer.name} (ID: ${referrer.id})`);
         
-        // 2. BINARY INCOME: Calculate binary income for entire upline
+        // 2. LEVEL INCOME: Calculate based on the direct income amount (not package amount)
+        await this.calculateLevelIncome(buyerUserId, directIncome);
+        
+        // 3. BINARY INCOME: Calculate binary income for entire upline using monthly amount
         await this.calculateUplineBinaryIncome(buyer.id, monthlyAmount);
         
-        // 3. LEVEL INCOME: Distribute to upline levels
-        await this.calculateLevelIncome(buyerUserId, monthlyAmount);
+        // 4. AUTO POOL: Check if referrer qualifies for auto pool entry
+        await this.checkAndProcessAutoPool(referrer.id);
       }
     } else {
       console.log(`ℹ️ User ${buyer.name} has no referrer, skipping earnings calculation`);
     }
   }
 
-  // Calculate level income distribution based on actual percentages
-  async calculateLevelIncome(buyerUserId: number, monthlyAmount: number): Promise<void> {
-    console.log(`🎯 Calculating level income for buyer ${buyerUserId} with package amount: ₹${monthlyAmount}`);
+  // Calculate level income distribution based on direct income amount
+  async calculateLevelIncome(buyerUserId: number, directIncomeAmount: number): Promise<void> {
+    console.log(`🎯 Calculating level income for buyer ${buyerUserId} based on direct income: ₹${directIncomeAmount}`);
     
     // Level income percentages (updated per requirements)
     const levelPercentages = [
@@ -549,7 +551,6 @@ export class PostgresStorage implements IStorage {
       0.01, 0.01, 0.01, 0.01, 0.01, 0.01  // Levels 15-20: 1% each
     ];
 
-    const directIncome = monthlyAmount * 0.05; // 5% direct income base
     const allUsers = await this.getAllUsers();
     
     // Find the buyer's direct referrer first
@@ -585,8 +586,8 @@ export class PostgresStorage implements IStorage {
       const unlockedLevels = directReferralCount * 2;
       
       if (currentLevel <= unlockedLevels) {
-        // Calculate level income
-        const levelIncome = directIncome * levelPercentages[currentLevel - 1];
+        // Calculate level income based on the direct income amount
+        const levelIncome = directIncomeAmount * levelPercentages[currentLevel - 1];
         
         if (levelIncome > 0) {
           console.log(`💎 Creating level ${currentLevel} income: ₹${levelIncome.toFixed(2)} for ${uplineUser.name} (ID: ${uplineUser.id})`);
@@ -596,12 +597,15 @@ export class PostgresStorage implements IStorage {
             userId: uplineUser.id,
             amount: levelIncome.toString(),
             earningType: 'level',
-            description: `Level ${currentLevel} income: ${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}% from ${buyerUser.name}'s package (₹${monthlyAmount})`,
+            description: `Level ${currentLevel} income: ${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}% from ${directReferrer.name}'s direct income`,
             relatedUserId: buyerUserId,
           });
           
           await this.updateUserEarnings(uplineUser.id, levelIncome);
           console.log(`✅ Level ${currentLevel} income: ₹${levelIncome.toFixed(2)} (${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}%) paid to ${uplineUser.name} (ID: ${uplineUser.id})`);
+          
+          // Check auto pool eligibility after level income
+          await this.checkAndProcessAutoPool(uplineUser.id);
         }
       } else {
         console.log(`🔒 Level ${currentLevel} locked for user ${uplineUser.id} (${uplineUser.name}). Needs ${Math.ceil(currentLevel / 2)} direct referrals, has ${directReferralCount}`);
@@ -661,9 +665,26 @@ export class PostgresStorage implements IStorage {
     const minBusiness = Math.min(leftCarryForward, rightCarryForward);
     const maxBusiness = Math.max(leftCarryForward, rightCarryForward);
 
-    // Binary income is 10% of the smaller side when there's a 2:1 or 1:2 match
-    if (minBusiness > 0 && maxBusiness >= minBusiness * 2) {
-      const binaryIncome = minBusiness * 0.10; // 10% of smaller side
+    // Check if this is the first binary income for this user
+    const previousBinaryEarnings = await this.getEarningsByUserId(userId);
+    const hasPreviousBinary = previousBinaryEarnings.some(e => e.earningType === 'binary');
+    
+    // For first binary: use 2:1 or 1:2 ratio, afterwards use 1:1
+    let canCalculateBinary = false;
+    
+    if (!hasPreviousBinary) {
+      // First binary: need 2:1 or 1:2 ratio
+      canCalculateBinary = minBusiness > 0 && maxBusiness >= minBusiness * 2;
+      console.log(`🎯 First binary check - Min: ₹${minBusiness}, Max: ₹${maxBusiness}, Ratio: ${maxBusiness/minBusiness}:1, Can calculate: ${canCalculateBinary}`);
+    } else {
+      // Subsequent binaries: use 1:1 matching
+      canCalculateBinary = minBusiness > 0 && rightCarryForward > 0 && leftCarryForward > 0;
+      console.log(`🎯 Subsequent binary check - Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}, Can calculate: ${canCalculateBinary}`);
+    }
+
+    // Binary income is 5% of the smaller side when matching conditions are met
+    if (canCalculateBinary) {
+      const binaryIncome = minBusiness * 0.05; // 5% of smaller side
       
       if (binaryIncome > 0) {
         console.log(`💰 Binary matching achieved! Smaller side: ₹${minBusiness}, Binary income: ₹${binaryIncome}`);
@@ -693,6 +714,53 @@ export class PostgresStorage implements IStorage {
       }
     } else {
       console.log(`⏳ No binary matching yet. Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward} (need 2:1 or 1:2 ratio)`);
+    }
+  }
+
+  // Auto Pool System - Check and process auto pool entries based on total earnings
+  async checkAndProcessAutoPool(userId: number): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    // Get user's total earnings
+    const userEarnings = await this.getEarningsByUserId(userId);
+    const totalEarnings = userEarnings.reduce((sum, earning) => sum + parseFloat(earning.amount), 0);
+    
+    // Get existing auto pool entries for this user
+    const existingEntries = await this.getAutoPoolEntriesByUserId(userId);
+    const currentEntries = existingEntries.length;
+    
+    // Calculate how many entries user should have (1 entry per ₹10,000)
+    const eligibleEntries = Math.floor(totalEarnings / 10000);
+    
+    if (eligibleEntries > currentEntries) {
+      const newEntries = eligibleEntries - currentEntries;
+      console.log(`🎊 User ${user.name} qualifies for ${newEntries} new auto pool entries (Total earnings: ₹${totalEarnings})`);
+      
+      for (let i = 0; i < newEntries; i++) {
+        // Deduct ₹500 as auto pool entry fee
+        const entryFee = 500;
+        
+        await this.createEarning({
+          userId: userId,
+          amount: (-entryFee).toString(),
+          earningType: 'autopool',
+          description: `Auto pool entry fee deduction`,
+          relatedUserId: null,
+        });
+        
+        await this.updateUserEarnings(userId, -entryFee);
+        
+        // Create auto pool entry
+        await this.createAutoPoolEntry({
+          userId: userId,
+          position: 0, // Will be calculated by auto pool placement logic
+          level: 1, // Start at level 1
+          parentId: null // Will be set by placement logic
+        });
+        
+        console.log(`✅ Created auto pool entry for ${user.name}, deducted ₹${entryFee} entry fee`);
+      }
     }
   }
 
