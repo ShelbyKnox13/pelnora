@@ -1,0 +1,160 @@
+How Binary Income Work and calculation work
+Pair Matching Criteria:
+
+
+The first binary income pair must be in 2:1 or 1:2 ratio.
+
+
+e.g., 2 left and 1 right, OR 1 left and 2 right.
+
+
+After the first pair is matched, all future income is calculated on a 1:1 pair basis.
+
+
+Binary Income Percentage:
+
+
+Binary income is 5% of the business volume (BV) from the weaker leg during matching.
+
+
+Carry Forward Logic:
+
+
+Any extra business volume on either leg (after pairing) is carried forward to the next cycle.
+
+
+This means you never lose unused volume — it stacks for future earnings.
+
+
+Team Member Counting:
+
+
+Only members on the same leg (left or right) are counted as your team for binary purposes.
+
+
+The other leg of your downline members is not counted in your team.
+
+
+Any member sponsored (direct or indirect) on your same side is considered part of your team.
+
+
+Spillover:
+
+
+If someone at the top refers a new person, that person is placed automatically in the first available position in the downline (on the same side).
+
+
+This person will appear in the binary table of all downline users on that leg.
+
+
+
+🧮 Example Scenario:
+Let's say:
+You (User A) joined and invested in a ₹10,000 package.
+You choose left side of you refferee
+Your upline (the person who referred you) adds new 2 members on his left , and spillover starts.
+Then if you refer 1 person on right then you hit binary
+This calculation is because due to you are on left side of your upline and same side of upline is considered as team for business counting for every one on same side.
+As your right side is not same side as your uplines so only business made to you and person on your right side count’s toward your business.
+Adn you right side business is also not counted for you upline as he placed you on left the business you and member refer by you and thereafter referred by then is counted business for entire team member on left side.  
+
+
+👤 User A's Binary Tree:
+Side
+Members
+Business Volume
+Left
+Person B (₹10,000)
+₹10,000
+Left
+Person C (₹10,000)
+₹10,000
+Right
+Person D referred by you (₹10,000)
+₹10,000
+
+💸 First Pair Matching:
+Since it's the first pair, your plan requires 2:1 or 1:2 matching.
+
+
+You have 2 Left (₹20,000) and 1 Right (₹10,000) — so 2:1 match is fulfilled.
+
+
+Binary Income:
+Match happens on Right leg (weaker leg) = ₹10,000
+
+
+5% of ₹10,000 = ₹500
+
+
+✅ You earn ₹500 as your first binary income.
+🪜 Remaining BV (Carry Forward):
+Left leg: ₹20,000 - ₹10,000 = ₹10,000 (carried forward)
+
+
+Right leg: 0 (used)
+
+
+
+🧮 Second Pair (After First Pair Done):
+Now, further matching will follow 1:1 logic.
+Let’s say:
+You get 1 more on Right leg (Person E, ₹10,000)
+
+
+Now:
+Side
+Members
+Business Volume
+Left
+₹10,000 (carried)
+₹10,000
+Right
+Person E (₹10,000)
+₹10,000
+
+💰 Binary Income = 5% of ₹10,000 = ₹500 again
+
+No binary is counted for the business volume you got binary earlier.
+
+👥 Team Member Counting Example:
+Imagine:
+Your Left leg has Person B → Person F → Person G (chain going down).
+
+
+If someone under Person G refers a new member, say Person H, that person is on your Left leg, so it’s counted in your team.
+
+
+However, if Person G refers someone to their Right leg, that’s not counted in your binary leg, because it’s not on your same side.
+
+🔁 Spillover Example:
+Suppose Your upline refers a person (Person Z) in his left leg.
+
+
+And you are on his left leg too then you are on same side and Person Z will be placed in you upline’s left leg and person  Z will be shown in  your Left leg also and to other in left leg of you upline and those who are on same side it might be you referred person or even their referred person but only from left side.
+
+
+Everyone in that leg (you and your downline) will see Person Z in their tree, and his/her Business Volume will count for binary income.
+But in case of Person Z he is new in the system old member in same will be shown to him but their business doesn't count for him. But after his joining evey new member in same sid leg chain will count toward as his business volume for binary calculation. 
+
+
+
+📌 Summary Points
+Feature
+Explanation
+Binary Legs
+2 legs: Left and Right
+First Matching Rule
+2:1 or 1:2 (only once)
+Later Matching Rule
+1:1 matching
+Income Rate
+5% of BV of weaker leg
+Spillover
+New users overflow to downline also
+Team Counting
+Only users on same leg counted
+Carry Forward
+Unused volume stays for future pairing
+
+

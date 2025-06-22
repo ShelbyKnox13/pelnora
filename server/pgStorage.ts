@@ -502,10 +502,9 @@ export class PostgresStorage implements IStorage {
     }
 
     const monthlyAmount = parseFloat(packagePurchased.monthlyAmount);
-    const totalPackageValue = monthlyAmount * packagePurchased.totalMonths;
-    console.log(`📊 Package purchased: ${packagePurchased.packageType} - Monthly: ₹${monthlyAmount}, Total: ₹${totalPackageValue}`);
+    console.log(`📊 Package purchased: ${packagePurchased.packageType} - Monthly: ₹${monthlyAmount}`);
 
-    // 1. DIRECT INCOME: 5% of monthly amount (one-time payment at signup)
+    // 1. DIRECT INCOME: 5% of monthly amount (one-time payment at signup only, not EMIs)
     if (buyer.referredBy) {
       const referrer = await this.getUser(buyer.referredBy);
       if (referrer) {
@@ -524,32 +523,38 @@ export class PostgresStorage implements IStorage {
         await this.updateUserEarnings(referrer.id, directIncome);
         console.log(`✅ Direct income: ₹${directIncome} paid to ${referrer.name} (ID: ${referrer.id})`);
         
-        // 2. BINARY INCOME: Calculate binary income for entire upline
+        // 2. LEVEL INCOME: Calculate based on the direct income amount (not package amount)
+        await this.calculateLevelIncome(buyerUserId, directIncome);
+        
+        // 3. BINARY INCOME: Calculate binary income for entire upline using monthly amount
         await this.calculateUplineBinaryIncome(buyer.id, monthlyAmount);
         
-        // 3. LEVEL INCOME: Distribute to upline levels
-        await this.calculateLevelIncome(buyerUserId, monthlyAmount);
+        // 4. AUTO POOL: Check if referrer qualifies for auto pool entry
+        await this.checkAndProcessAutoPool(referrer.id);
       }
     } else {
       console.log(`ℹ️ User ${buyer.name} has no referrer, skipping earnings calculation`);
     }
   }
 
-  // Calculate level income distribution based on actual percentages
-  async calculateLevelIncome(buyerUserId: number, monthlyAmount: number): Promise<void> {
-    console.log(`🎯 Calculating level income for buyer ${buyerUserId} with package amount: ₹${monthlyAmount}`);
+  // Calculate level income distribution based on direct income amount
+  async calculateLevelIncome(buyerUserId: number, directIncomeAmount: number): Promise<void> {
+    console.log(`🎯 Calculating level income for buyer ${buyerUserId} based on direct income: ₹${directIncomeAmount}`);
     
     // Level income percentages (updated per requirements)
     const levelPercentages = [
       0.15, // Level 1: 15%
       0.10, // Level 2: 10%
-      0.05, // Level 3: 5%
-      0.03, 0.03, 0.03, 0.03, 0.03, // Levels 4-8: 3% each
-      0.02, 0.02, 0.02, 0.02, 0.02, 0.02, // Levels 9-14: 2% each
-      0.01, 0.01, 0.01, 0.01, 0.01, 0.01  // Levels 15-20: 1% each
+      0.08, // Level 3: 8%
+      0.06, // Level 4: 6%
+      0.05, // Level 5: 5%
+      0.04, // Level 6: 4%
+      0.03, // Level 7: 3%
+      0.02, // Level 8: 2%
+      0.01, // Level 9: 1%
+      0.01  // Level 10: 1%
     ];
 
-    const directIncome = monthlyAmount * 0.05; // 5% direct income base
     const allUsers = await this.getAllUsers();
     
     // Find the buyer's direct referrer first
@@ -576,7 +581,7 @@ export class PostgresStorage implements IStorage {
     let currentReferrerId = directReferrer.referredBy;
     let currentLevel = 1; // Start at level 1 for the direct referrer's referrer
     
-    while (currentReferrerId && currentLevel <= 20) {
+    while (currentReferrerId && currentLevel <= 10) {
       const uplineUser = await this.getUser(currentReferrerId);
       if (!uplineUser) break;
       
@@ -585,8 +590,8 @@ export class PostgresStorage implements IStorage {
       const unlockedLevels = directReferralCount * 2;
       
       if (currentLevel <= unlockedLevels) {
-        // Calculate level income
-        const levelIncome = directIncome * levelPercentages[currentLevel - 1];
+        // Calculate level income based on the direct income amount
+        const levelIncome = directIncomeAmount * levelPercentages[currentLevel - 1];
         
         if (levelIncome > 0) {
           console.log(`💎 Creating level ${currentLevel} income: ₹${levelIncome.toFixed(2)} for ${uplineUser.name} (ID: ${uplineUser.id})`);
@@ -596,12 +601,15 @@ export class PostgresStorage implements IStorage {
             userId: uplineUser.id,
             amount: levelIncome.toString(),
             earningType: 'level',
-            description: `Level ${currentLevel} income: ${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}% from ${buyerUser.name}'s package (₹${monthlyAmount})`,
+            description: `Level ${currentLevel} income: ${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}% from ${directReferrer.name}'s direct income`,
             relatedUserId: buyerUserId,
           });
           
           await this.updateUserEarnings(uplineUser.id, levelIncome);
           console.log(`✅ Level ${currentLevel} income: ₹${levelIncome.toFixed(2)} (${(levelPercentages[currentLevel - 1] * 100).toFixed(0)}%) paid to ${uplineUser.name} (ID: ${uplineUser.id})`);
+          
+          // Check auto pool eligibility after level income
+          await this.checkAndProcessAutoPool(uplineUser.id);
         }
       } else {
         console.log(`🔒 Level ${currentLevel} locked for user ${uplineUser.id} (${uplineUser.name}). Needs ${Math.ceil(currentLevel / 2)} direct referrals, has ${directReferralCount}`);
@@ -640,95 +648,207 @@ export class PostgresStorage implements IStorage {
     }
   }
 
-  // Calculate binary income for a specific user with proper 2:1 or 1:2 matching and carry forward
+  // Calculate binary income with proper 2:1 first-time matching, then 1:1
   async calculateBinaryIncome(userId: number, newMemberPackageAmount: number, newMemberUserId?: number): Promise<void> {
     const user = await this.getUser(userId);
     if (!user) return;
 
-    console.log(`🎯 Calculating binary income for user ${userId} (${user.name}) with new member package amount: ₹${newMemberPackageAmount}`);
+    console.log(`🎯 Calculating binary income for user ${userId} (${user.name}) with new member package: ₹${newMemberPackageAmount}`);
 
-    // First, update carry forward with new business
-    await this.updateCarryForwardWithNewBusiness(userId, newMemberPackageAmount, newMemberUserId);
-
-    // Get updated business info after adding new business to carry forward
-    const businessInfo = await this.getBinaryBusinessInfo(userId);
-    let leftCarryForward = parseFloat(businessInfo.leftCarryForward);
-    let rightCarryForward = parseFloat(businessInfo.rightCarryForward);
-
-    console.log(`📦 Total carry forward after new business - Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}`);
-
-    // Check for binary matching (2:1 or 1:2 ratio)
-    const minBusiness = Math.min(leftCarryForward, rightCarryForward);
-    const maxBusiness = Math.max(leftCarryForward, rightCarryForward);
-
-    // Binary income is 10% of the smaller side when there's a 2:1 or 1:2 match
-    if (minBusiness > 0 && maxBusiness >= minBusiness * 2) {
-      const binaryIncome = minBusiness * 0.10; // 10% of smaller side
+    // Get current carry forward amounts (business volumes)
+    const leftCarryForward = parseFloat(user.leftCarryForward || '0');
+    const rightCarryForward = parseFloat(user.rightCarryForward || '0');
+    
+    console.log(`📊 Current business volumes - Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}`);
+    
+    // Check if user has had any previous binary income
+    const previousBinaryEarnings = await this.getEarningsByUserId(userId);
+    const hasPreviousBinary = previousBinaryEarnings.some(e => e.earningType === 'binary');
+    
+    let canMatch = false;
+    let matchAmount = 0;
+    let matchType = '';
+    
+    if (!hasPreviousBinary) {
+      // First binary matching: requires 2:1 or 1:2 ratio
+      console.log(`🎯 First binary matching check for ${user.name}`);
       
-      if (binaryIncome > 0) {
-        console.log(`💰 Binary matching achieved! Smaller side: ₹${minBusiness}, Binary income: ₹${binaryIncome}`);
-        
-        // Create binary income earning
-        await this.createEarning({
-          userId: user.id,
-          amount: binaryIncome.toString(),
-          earningType: 'binary',
-          description: `Binary income: 10% of matched business (₹${minBusiness})`,
-          relatedUserId: null,
-        });
-        
-        await this.updateUserEarnings(user.id, binaryIncome);
-        console.log(`✅ Binary income: ₹${binaryIncome} paid to ${user.name} (ID: ${user.id})`);
-
-        // Update carry forward - subtract the matched amount from both sides
-        const newLeftCarryForward = Math.max(0, leftCarryForward - minBusiness);
-        const newRightCarryForward = Math.max(0, rightCarryForward - minBusiness);
-
-        await this.updateUser(user.id, {
-          leftCarryForward: newLeftCarryForward.toString(),
-          rightCarryForward: newRightCarryForward.toString()
-        });
-
-        console.log(`📦 Updated carry forward after matching - Left: ₹${newLeftCarryForward}, Right: ₹${newRightCarryForward}`);
+      // Check for 2:1 ratio (left >= 2 * right)
+      if (leftCarryForward >= 2 * rightCarryForward && rightCarryForward > 0) {
+        canMatch = true;
+        matchAmount = rightCarryForward; // Weaker leg (right) determines match
+        matchType = '2:1 ratio (2 left : 1 right)';
+        console.log(`✅ First binary match: 2:1 ratio achieved`);
+      }
+      // Check for 1:2 ratio (right >= 2 * left)
+      else if (rightCarryForward >= 2 * leftCarryForward && leftCarryForward > 0) {
+        canMatch = true;
+        matchAmount = leftCarryForward; // Weaker leg (left) determines match
+        matchType = '1:2 ratio (1 left : 2 right)';
+        console.log(`✅ First binary match: 1:2 ratio achieved`);
+      } else {
+        console.log(`⏳ First binary criteria not met. Need 2:1 or 1:2 ratio. Current: Left ₹${leftCarryForward}, Right ₹${rightCarryForward}`);
       }
     } else {
-      console.log(`⏳ No binary matching yet. Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward} (need 2:1 or 1:2 ratio)`);
+      // Subsequent matching: 1:1 ratio
+      console.log(`🔄 Subsequent binary matching for ${user.name} (1:1 ratio)`);
+      
+      if (leftCarryForward > 0 && rightCarryForward > 0) {
+        canMatch = true;
+        matchAmount = Math.min(leftCarryForward, rightCarryForward); // Weaker leg
+        matchType = '1:1 ratio (subsequent matching)';
+        console.log(`✅ Subsequent binary match: 1:1 ratio`);
+      } else {
+        console.log(`⏳ Subsequent binary criteria not met. Need business on both sides`);
+      }
+    }
+    
+    // Calculate 5% binary income on weaker leg if matching criteria met
+    if (canMatch && matchAmount > 0) {
+      const binaryIncome = Math.round(matchAmount * 0.05); // 5% of weaker leg
+      
+      console.log(`💰 Binary matching achieved! Type: ${matchType}, Weaker leg: ₹${matchAmount}, Income: ₹${binaryIncome}`);
+      
+      // Create binary income earning
+      await this.createEarning({
+        userId: user.id,
+        amount: binaryIncome.toString(),
+        earningType: 'binary',
+        description: `Binary income: 5% of ₹${matchAmount} weaker leg (${matchType})`,
+        relatedUserId: newMemberUserId || null,
+      });
+      
+      await this.updateUserEarnings(user.id, binaryIncome);
+      
+      // Update carry forward - subtract matched amount from both sides
+      const newLeftCarryForward = Math.max(0, leftCarryForward - matchAmount);
+      const newRightCarryForward = Math.max(0, rightCarryForward - matchAmount);
+      
+      await this.updateUser(user.id, {
+        leftCarryForward: newLeftCarryForward.toString(),
+        rightCarryForward: newRightCarryForward.toString()
+      });
+      
+      console.log(`✅ Binary income ₹${binaryIncome} paid to ${user.name}`);
+      console.log(`🔄 Updated carry forward - Left: ₹${newLeftCarryForward}, Right: ₹${newRightCarryForward}`);
+      
+      // Check for auto pool eligibility
+      await this.checkAndProcessAutoPool(userId);
+    } else {
+      console.log(`⏳ No binary matching yet. Left: ₹${leftCarryForward}, Right: ₹${rightCarryForward}`);
     }
   }
 
-  // Update carry forward when new business is added to a team
-  async updateCarryForwardWithNewBusiness(userId: number, newBusinessAmount: number, newMemberUserId?: number): Promise<void> {
+  // Auto Pool System - Check and process auto pool entries based on total earnings
+  async checkAndProcessAutoPool(userId: number): Promise<void> {
     const user = await this.getUser(userId);
     if (!user) return;
 
-    let sideToUpdate = 'left'; // default
-
-    // If we have the new member's user ID, find which side they're on
-    if (newMemberUserId) {
-      const memberBinaryStructure = await db.select().from(binaryStructure)
-        .where(eq(binaryStructure.userId, newMemberUserId));
+    // Get user's total earnings
+    const userEarnings = await this.getEarningsByUserId(userId);
+    const totalEarnings = userEarnings.reduce((sum, earning) => sum + parseFloat(earning.amount), 0);
+    
+    // Get existing auto pool entries for this user
+    const existingEntries = await this.getAutoPoolEntriesByUserId(userId);
+    const currentEntries = existingEntries.length;
+    
+    // Calculate how many entries user should have (1 entry per ₹10,000)
+    const eligibleEntries = Math.floor(totalEarnings / 10000);
+    
+    if (eligibleEntries > currentEntries) {
+      const newEntries = eligibleEntries - currentEntries;
+      console.log(`🎊 User ${user.name} qualifies for ${newEntries} new auto pool entries (Total earnings: ₹${totalEarnings})`);
       
-      if (memberBinaryStructure.length > 0) {
-        // Find the path from the new member to this user to determine which side
-        const memberStructure = memberBinaryStructure[0];
+      for (let i = 0; i < newEntries; i++) {
+        // Deduct ₹500 as auto pool entry fee
+        const entryFee = 500;
         
-        // Traverse up to find which side this member is on relative to userId
-        let currentStructure = memberStructure;
-        while (currentStructure && currentStructure.parentId !== userId) {
-          const parentStructure = await db.select().from(binaryStructure)
-            .where(eq(binaryStructure.userId, currentStructure.parentId));
-          if (parentStructure.length > 0) {
-            currentStructure = parentStructure[0];
-          } else {
-            break;
-          }
-        }
+        await this.createEarning({
+          userId: userId,
+          amount: (-entryFee).toString(),
+          earningType: 'autopool',
+          description: `Auto pool entry fee (₹${entryFee}) paid by Pelnora through income deduction`,
+          relatedUserId: null,
+        });
         
-        if (currentStructure && currentStructure.parentId === userId) {
-          sideToUpdate = currentStructure.position;
-        }
+        await this.updateUserEarnings(userId, -entryFee);
+        
+        // Create auto pool entry
+        await this.createAutoPoolEntry({
+          userId: userId,
+          position: 0, // Will be calculated by auto pool placement logic
+          level: 1, // Start at level 1
+          parentId: null // Will be set by placement logic
+        });
+        
+        console.log(`✅ Created auto pool entry for ${user.name}, deducted ₹${entryFee} entry fee`);
       }
     }
+  }
+
+  // Update carry forward when new business is added (same-side members only count toward business volume)
+  async updateCarryForwardWithNewBusiness(userId: number, newBusinessAmount: number, newMemberUserId?: number): Promise<void> {
+    console.log(`🔄 Processing business volume update for user ${userId} with new business: ₹${newBusinessAmount}`);
+    
+    // If no specific member, add to default side (left)
+    if (!newMemberUserId) {
+      const user = await this.getUser(userId);
+      if (!user) return;
+      
+      const leftCarryForward = parseFloat(user.leftCarryForward || "0");
+      const newLeftCarryForward = leftCarryForward + newBusinessAmount;
+      
+      await this.updateUser(userId, {
+        leftCarryForward: newLeftCarryForward.toString()
+      });
+      
+      console.log(`📈 Added ₹${newBusinessAmount} to left carry forward for user ${userId}`);
+      return;
+    }
+
+    // Find which side the new member belongs to relative to userId
+    const memberBinaryStructure = await db.select().from(binaryStructure)
+      .where(eq(binaryStructure.userId, newMemberUserId));
+    
+    if (memberBinaryStructure.length === 0) {
+      console.log(`⚠️ No binary structure found for new member ${newMemberUserId}`);
+      return;
+    }
+
+    const memberStructure = memberBinaryStructure[0];
+    let sideToUpdate = null;
+    
+    // Traverse up the binary tree to find which side this member is on relative to userId
+    let currentStructure = memberStructure;
+    
+    while (currentStructure) {
+      if (currentStructure.parentId === userId) {
+        // Direct child of userId - use their position
+        sideToUpdate = currentStructure.position;
+        break;
+      } else if (currentStructure.parentId) {
+        // Move up one level in the tree
+        const parentStructures = await db.select().from(binaryStructure)
+          .where(eq(binaryStructure.userId, currentStructure.parentId));
+        
+        if (parentStructures.length > 0) {
+          currentStructure = parentStructures[0];
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+    
+    if (!sideToUpdate) {
+      console.log(`⚠️ Could not determine which side member ${newMemberUserId} is on relative to user ${userId}`);
+      return;
+    }
+
+    // Update carry forward for the appropriate side
+    const user = await this.getUser(userId);
+    if (!user) return;
     
     const leftCarryForward = parseFloat(user.leftCarryForward || "0");
     const rightCarryForward = parseFloat(user.rightCarryForward || "0");
@@ -738,13 +858,13 @@ export class PostgresStorage implements IStorage {
       await this.updateUser(userId, {
         leftCarryForward: newLeftCarryForward.toString()
       });
-      console.log(`📦 Added ₹${newBusinessAmount} to left carry forward for ${user.name}. New total: ₹${newLeftCarryForward}`);
+      console.log(`📈 Updated left carry forward for ${user.name}: ₹${leftCarryForward} + ₹${newBusinessAmount} = ₹${newLeftCarryForward}`);
     } else {
       const newRightCarryForward = rightCarryForward + newBusinessAmount;
       await this.updateUser(userId, {
         rightCarryForward: newRightCarryForward.toString()
       });
-      console.log(`📦 Added ₹${newBusinessAmount} to right carry forward for ${user.name}. New total: ₹${newRightCarryForward}`);
+      console.log(`📈 Updated right carry forward for ${user.name}: ₹${rightCarryForward} + ₹${newBusinessAmount} = ₹${newRightCarryForward}`);
     }
   }
 
