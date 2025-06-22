@@ -1,0 +1,23 @@
+{
+  "name": "pelnora-mlm",
+  "version": "1.0.0",
+  "description": "Pelnora MLM Application",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "setup": "node pelnora-setup.js",
+    "setup-db": "node server/setup-database.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-mysql-session": "^3.0.0",
+    "express-session": "^1.17.3",
+    "mysql2": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -35,7 +35,9 @@ const bankDetailsEventEmitter = {
   listeners: new Set<() => void>(),
   subscribe(listener: () => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   },
   emit() {
     this.listeners.forEach(listener => listener());
@@ -81,14 +83,14 @@ export const ProfileDropdown = () => {
     });
   }, [user]);
 
-  // Removed automatic KYC dialog popup - will use KYCVerificationModal from Withdrawals page instead
-
   // Subscribe to bank details dialog events
   useEffect(() => {
     const unsubscribe = bankDetailsEventEmitter.subscribe(() => {
       setShowBankDetailsDialog(true);
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleBankDetailsSubmit = async (e: React.FormEvent) => {
@@ -572,4 +574,4 @@ export const ProfileDropdown = () => {
       </Dialog>
     </>
   );
-}; 
+};

@@ -8,11 +8,12 @@ const __dirname = path.dirname(__filename);
 
 async function runMigrations() {
   const client = new Client({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'pelnora',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'admin'
+    host: 'localhost',
+    port: 5432,
+    database: 'pelnora_db',
+    user: 'pelnora_user',
+    password: 'Pelnora@2024#Secure',
+    ssl: false
   });
 
   try {

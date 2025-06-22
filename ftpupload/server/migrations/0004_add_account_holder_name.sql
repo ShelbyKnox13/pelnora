@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN account_holder_name TEXT; 
